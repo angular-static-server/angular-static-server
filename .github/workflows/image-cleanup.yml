@@ -1,0 +1,19 @@
+name: Image Cleanup
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 5 * * *'
+
+permissions:
+  packages: write
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/delete-package-versions@v4
+        with:
+          package-name: 'server-test'
+          package-type: 'container'
+          min-versions-to-keep: 10
