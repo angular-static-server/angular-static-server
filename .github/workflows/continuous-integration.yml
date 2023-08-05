@@ -25,7 +25,7 @@ jobs:
         
       - name: Login to ghcr.io
         if: github.repository.fork == false
-        run: echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io --username ${{ github.actor }} --password-stdin
       - name: Container
         run: docker build --tag $IMAGE_REPO:${{ github.ref_name }} .
         env:

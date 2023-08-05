@@ -28,7 +28,7 @@ jobs:
         run: go tool cover -func=coverage.out
 
       - name: Login to ghcr.io
-        run: echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io --username ${{ github.actor }} --password-stdin
       - name: 'Container: Build image'
         run: docker build --target server --tag $IMAGE_REPO:${{ github.ref_name }} --tag $IMAGE_REPO:latest .
         env:
