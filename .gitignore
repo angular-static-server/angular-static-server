@@ -7,9 +7,11 @@
 *.dll
 *.so
 *.dylib
+ngstaticserver
 
 # Test binary, built with `go test -c`
 *.test
+__debug_bin
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
@@ -19,3 +21,7 @@
 
 # Go workspace file
 go.work
+
+# Compressed files
+*.br
+*.gz

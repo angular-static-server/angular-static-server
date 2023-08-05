@@ -1,0 +1,39 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+permissions:
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/server
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+      - name: Lint
+        run: gofmt -l .
+      - name: Build
+        run: go build
+      - name: Test
+        run: go test ./... -coverprofile=coverage.out
+      - name: Coverage
+        run: go tool cover -func=coverage.out
+
+      - name: Login to ghcr.io
+        run: echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+      - name: 'Container: Build image'
+        run: docker build --target server --tag $IMAGE_REPO:${{ github.ref_name }} --tag $IMAGE_REPO:latest .
+        env:
+          DOCKER_BUILDKIT: 1
+      - name: 'Container: Publish image'
+        run: docker push $IMAGE_REPO:${{ github.ref_name }}
+      - name: 'Container: Publish image as latest'
+        run: docker push $IMAGE_REPO:latest
