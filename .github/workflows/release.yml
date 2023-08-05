@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/server
+      VERSION: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v4
@@ -29,11 +30,23 @@ jobs:
 
       - name: Login to ghcr.io
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io --username ${{ github.actor }} --password-stdin
+      - id: major-version
+        run: echo "version=${VERSION%%.*}" >> "$GITHUB_OUTPUT"
       - name: 'Container: Build image'
-        run: docker build --target server --tag $IMAGE_REPO:${{ github.ref_name }} --tag $IMAGE_REPO:latest .
+        run: |
+          docker build \
+            --target server \
+            --tag $IMAGE_REPO:$VERSION \
+            --tag $IMAGE_REPO:${{ steps.major-version.outputs.version }} \
+            --tag $IMAGE_REPO:latest \
+            .
         env:
           DOCKER_BUILDKIT: 1
       - name: 'Container: Publish image'
-        run: docker push $IMAGE_REPO:${{ github.ref_name }}
+        run: docker push $IMAGE_REPO:$VERSION
+      - name: 'Container: Publish image as major version'
+        if: contains(github.ref_name, "-") == false
+        run: docker push $IMAGE_REPO:${{ steps.major-version.outputs.version }}
       - name: 'Container: Publish image as latest'
+        if: contains(github.ref_name, "-") == false
         run: docker push $IMAGE_REPO:latest
