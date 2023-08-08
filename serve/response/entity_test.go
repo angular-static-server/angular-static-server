@@ -1,8 +1,7 @@
 package response
 
 import (
-	"errors"
-	"ngstaticserver/compress"
+	"ngstaticserver/constants"
 	"ngstaticserver/test"
 	"os"
 	"path/filepath"
@@ -10,23 +9,16 @@ import (
 )
 
 const MainFile = "main.676ae13716545088.js"
+const IndexFile = "index.html"
 
 func TestGettingContent(t *testing.T) {
 	context := test.NewTestDir(t)
 	context.ImportTestNgsscApp()
-	mainContent := context.ReadFile(MainFile)
-	resolver := CreateEntityResolver(context.Path)
-	entity := resolver.Resolve(MainFile)
+	content := context.ReadFile(IndexFile)
+	resolver := CreateEntityResolver(context.Path, constants.DefaultCacheSize)
+	entity := resolver.Resolve(IndexFile)
 
-	content, readFromDisk, err := entity.Content()
-	test.AssertEqual(t, string(content), mainContent, "")
-	test.AssertTrue(t, readFromDisk, "")
-	test.AssertEqual(t, err, nil, "")
-
-	content, readFromDisk, err = entity.Content()
-	test.AssertEqual(t, string(content), mainContent, "")
-	test.AssertTrue(t, !readFromDisk, "")
-	test.AssertEqual(t, err, nil, "")
+	test.AssertEqual(t, string(entity.Content), content, "")
 }
 
 func TestGettingContentWithNoReadPermission(t *testing.T) {
@@ -36,63 +28,32 @@ func TestGettingContentWithNoReadPermission(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	resolver := CreateEntityResolver(context.Path)
+	resolver := CreateEntityResolver(context.Path, constants.DefaultCacheSize)
 	entity := resolver.Resolve(MainFile)
 
-	_, _, err = entity.Content()
-	test.AssertTrue(t, errors.Is(err, os.ErrPermission), "")
-
-	_, _, err = entity.ContentBrotli()
-	test.AssertTrue(t, errors.Is(err, os.ErrPermission), "")
-
-	_, _, err = entity.ContentGzip()
-	test.AssertTrue(t, errors.Is(err, os.ErrPermission), "")
+	test.AssertTrue(t, entity.Content == nil, "")
+	test.AssertTrue(t, entity.ContentBrotli == nil, "")
+	test.AssertTrue(t, entity.ContentGzip == nil, "")
 }
 
 func TestGettingContentBrotli(t *testing.T) {
-	for _, d := range []bool{true, false} {
-		context := test.NewTestDir(t)
-		context.ImportTestNgsscApp()
-		mainContent := context.ReadFile(MainFile)
-		if !d {
-			compress.CompressWithBrotliToFile([]byte(mainContent), filepath.Join(context.Path, MainFile+".br"))
-		}
-		resolver := CreateEntityResolver(context.Path)
-		entity := resolver.Resolve(MainFile)
-		content, readFromDisk, err := entity.ContentBrotli()
-		brotliContent := string(test.DecompressBrotli(content))
-		test.AssertEqual(t, brotliContent, mainContent, "")
-		test.AssertTrue(t, readFromDisk, "")
-		test.AssertEqual(t, err, nil, "")
-
-		content, readFromDisk, err = entity.ContentBrotli()
-		brotliContent = string(test.DecompressBrotli(content))
-		test.AssertEqual(t, brotliContent, mainContent, "")
-		test.AssertTrue(t, !readFromDisk, "")
-		test.AssertEqual(t, err, nil, "")
-	}
+	context := test.NewTestDir(t)
+	context.ImportTestNgsscApp()
+	mainContent := context.ReadFile(MainFile)
+	context.CompressFile(MainFile)
+	resolver := CreateEntityResolver(context.Path, constants.DefaultCacheSize)
+	entity := resolver.Resolve(MainFile)
+	brotliContent := string(test.DecompressBrotli(entity.ContentBrotli))
+	test.AssertEqual(t, brotliContent, mainContent, "")
 }
 
 func TestGettingContentGzip(t *testing.T) {
-	for _, d := range []bool{true, false} {
-		context := test.NewTestDir(t)
-		context.ImportTestNgsscApp()
-		mainContent := context.ReadFile(MainFile)
-		if !d {
-			compress.CompressWithGzipToFile([]byte(mainContent), filepath.Join(context.Path, MainFile+".gz"))
-		}
-		resolver := CreateEntityResolver(context.Path)
-		entity := resolver.Resolve(MainFile)
-		content, readFromDisk, err := entity.ContentGzip()
-		brotliContent := string(test.DecompressGzip(content))
-		test.AssertEqual(t, brotliContent, mainContent, "")
-		test.AssertTrue(t, readFromDisk, "")
-		test.AssertEqual(t, err, nil, "")
-
-		content, readFromDisk, err = entity.ContentGzip()
-		brotliContent = string(test.DecompressGzip(content))
-		test.AssertEqual(t, brotliContent, mainContent, "")
-		test.AssertTrue(t, !readFromDisk, "")
-		test.AssertEqual(t, err, nil, "")
-	}
+	context := test.NewTestDir(t)
+	context.ImportTestNgsscApp()
+	mainContent := context.ReadFile(MainFile)
+	context.CompressFile(MainFile)
+	resolver := CreateEntityResolver(context.Path, constants.DefaultCacheSize)
+	entity := resolver.Resolve(MainFile)
+	brotliContent := string(test.DecompressGzip(entity.ContentGzip))
+	test.AssertEqual(t, brotliContent, mainContent, "")
 }

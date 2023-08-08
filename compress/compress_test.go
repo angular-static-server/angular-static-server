@@ -29,7 +29,7 @@ func TestAction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = assertCompression(t, context.Path, constants.CompressionDefaultThreshold)
+	err = assertCompression(t, context.Path, constants.DefaultCompressionThreshold)
 	if err != nil {
 		t.Error(err)
 	}
@@ -39,7 +39,7 @@ func TestCompressAction(t *testing.T) {
 	context := test.NewTestDir(t)
 	context.ImportTestNgsscApp()
 	params := &CompressParams{
-		Threshold:        constants.CompressionDefaultThreshold,
+		Threshold:        constants.DefaultCompressionThreshold,
 		WorkingDirectory: context.Path,
 	}
 
@@ -58,7 +58,7 @@ func assertCompression(t *testing.T, workingDirectory string, threshold int64) e
 			return err
 		} else if info.IsDir() || isCompressedFile(path) {
 			return nil
-		} else if info.Size() >= threshold && isUnicodeFile(path) && !strings.HasSuffix(path, "/index.html") {
+		} else if info.Size() >= threshold && isUnicodeFile(path) {
 			content, err := os.ReadFile(path)
 			test.AssertNoError(t, err, "")
 			for _, v := range []string{path + ".gz", path + ".br"} {

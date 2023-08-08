@@ -5,13 +5,22 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Start angular-static-server",
+      "name": "Server: minimal",
       "type": "go",
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/main.go",
       "args": ["serve"],
-      "cwd": "${workspaceFolder}/test/ngssc-app"
+      "cwd": "${workspaceFolder}/test/angular/dist/minimal"
+    },
+    {
+      "name": "Server: i18n",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/main.go",
+      "args": ["serve"],
+      "cwd": "${workspaceFolder}/test/angular/dist/i18n"
     },
     {
       "name": "Compress test app",
@@ -20,7 +29,7 @@
       "mode": "auto",
       "program": "${workspaceFolder}/main.go",
       "args": ["compress"],
-      "cwd": "${workspaceFolder}/test/ngssc-app"
+      "cwd": "${workspaceFolder}/test/angular/dist/i18n"
     },
   ]
 }

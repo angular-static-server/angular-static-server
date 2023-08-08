@@ -35,6 +35,12 @@ func (context TestDir) ImportTestNgsscApp() {
 	copyDir(testAppDir, context.Path)
 }
 
+func (context TestDir) CompressFile(filePath string) {
+	context.t.Helper()
+	content := context.ReadFile(filePath)
+	CompressToFile([]byte(content), filepath.Join(context.Path, filePath))
+}
+
 func (context TestDir) ReadFile(fileName string) string {
 	context.t.Helper()
 	filePath := filepath.Join(context.Path, fileName)

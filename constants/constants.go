@@ -1,6 +1,7 @@
 package constants
 
-var CompressionDefaultThreshold = int64(1024)
+const DefaultCompressionThreshold = int64(1024)
+const DefaultCacheSize = 1024 * 1024
 
 // Based on the golang mime type list
 var CompressionMimeTypes []string = []string{

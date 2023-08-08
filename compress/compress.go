@@ -6,7 +6,6 @@ import (
 	"ngstaticserver/constants"
 	"os"
 	"path/filepath"
-	"strings"
 	"unicode/utf8"
 
 	"github.com/urfave/cli/v2"
@@ -15,8 +14,8 @@ import (
 var Flags = []cli.Flag{
 	&cli.Int64Flag{
 		EnvVars: []string{"_COMPRESSION_THRESHOLD"},
-		Name:    "threshold",
-		Value:   constants.CompressionDefaultThreshold,
+		Name:    "compression-threshold",
+		Value:   constants.DefaultCompressionThreshold,
 	},
 }
 
@@ -60,9 +59,6 @@ func compressFilesInDirectory(params *CompressParams) error {
 		if err != nil {
 			return err
 		} else if info.IsDir() || isCompressedFile(path) {
-			return nil
-		} else if strings.HasSuffix(path, "/index.html") {
-			fmt.Printf("- skipping %v (no index files)\n", path)
 			return nil
 		} else if !isUnicodeFile(path) {
 			fmt.Printf("- skipping %v (not a text/unicode file)\n", path)

@@ -5,9 +5,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"ngstaticserver/compress"
+	"ngstaticserver/constants"
 	"ngstaticserver/test"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -65,60 +64,13 @@ func TestFileRequest(t *testing.T) {
 	test.AssertEqual(t, string(body), content, "")
 }
 
-func TestFileRequestWithMissingPermission(t *testing.T) {
-	app, context := createTestApp(t)
-	err := os.Chmod(filepath.Join(context.Path, Licenses), 0000)
-	if err != nil {
-		t.Error(err)
-	}
-
-	req := httptest.NewRequest("GET", fmt.Sprintf("/%v", Licenses), nil)
-	w := httptest.NewRecorder()
-	app.handleRequest(w, req)
-
-	resp := w.Result()
-	body, _ := io.ReadAll(resp.Body)
-
-	test.AssertEqual(t, resp.StatusCode, 500, "")
-	test.AssertEqual(t, resp.Header.Get("Content-Type"), "application/json", "")
-	test.AssertEqual(t, string(body), "{\"code\": 500, \"status\": \"Internal Server Error\"}", "")
-}
-
 func TestFileRequestBrotli(t *testing.T) {
-	for _, dynamic := range []bool{true, false} {
-		for _, e := range []string{"*", "br", "gz, deflate, br"} {
-			app, context := createTestApp(t)
-			content := context.ReadFile(Polyfill)
-			if !dynamic {
-				compress.CompressWithBrotliToFile([]byte(content), filepath.Join(context.Path, Polyfill+".br"))
-			}
+	for _, e := range []string{"*", "br", "gz, deflate, br"} {
+		app, context := createTestApp(t)
+		context.CompressFile(Polyfill)
+		content := context.ReadFile(Polyfill)
 
-			req := httptest.NewRequest("GET", fmt.Sprintf("/%v", Polyfill), nil)
-			req.Header.Add("Accept-Encoding", e)
-			w := httptest.NewRecorder()
-			app.handleRequest(w, req)
-
-			resp := w.Result()
-			body, _ := io.ReadAll(resp.Body)
-
-			test.AssertEqual(t, resp.StatusCode, 200, "")
-			test.AssertEqual(t, resp.Header.Get("Content-Type"), "text/javascript; charset=utf-8", "")
-			test.AssertEqual(t, resp.Header.Get("Content-Encoding"), "br", "")
-			responseContent := string(test.DecompressBrotli(body))
-			test.AssertEqual(t, responseContent, content, "")
-		}
-	}
-}
-
-func TestIndexRequestBrotli(t *testing.T) {
-	for _, e := range []string{"*", "br"} {
-		app, context := createTestAppWithInit(t, func(_ test.TestDir, params *ServerParams) {
-			params.CompressionThreshold = 10
-		})
-		content := context.ReadFile(IndexHtml)
-		parts := strings.Split(content, "<!--CONFIG-->")
-
-		req := httptest.NewRequest("GET", "/", nil)
+		req := httptest.NewRequest("GET", fmt.Sprintf("/%v", Polyfill), nil)
 		req.Header.Add("Accept-Encoding", e)
 		w := httptest.NewRecorder()
 		app.handleRequest(w, req)
@@ -127,46 +79,50 @@ func TestIndexRequestBrotli(t *testing.T) {
 		body, _ := io.ReadAll(resp.Body)
 
 		test.AssertEqual(t, resp.StatusCode, 200, "")
-		test.AssertEqual(t, resp.Header.Get("Content-Type"), "text/html; charset=utf-8", "")
+		test.AssertEqual(t, resp.Header.Get("Content-Type"), "text/javascript; charset=utf-8", "")
 		test.AssertEqual(t, resp.Header.Get("Content-Encoding"), "br", "")
 		responseContent := string(test.DecompressBrotli(body))
-		test.AssertTrue(t, strings.HasPrefix(responseContent, parts[0]), "")
-		test.AssertTrue(t, strings.HasSuffix(responseContent, parts[1]), "")
-	}
-}
-
-func TestFileRequestGzip(t *testing.T) {
-	for _, dynamic := range []bool{true, false} {
-		app, context := createTestApp(t)
-		content := context.ReadFile(Polyfill)
-		if !dynamic {
-			compress.CompressWithGzipToFile([]byte(content), filepath.Join(context.Path, Polyfill+".gz"))
-		}
-
-		req := httptest.NewRequest("GET", fmt.Sprintf("/%v", Polyfill), nil)
-		req.Header.Add("Accept-Encoding", "gzip")
-		w := httptest.NewRecorder()
-		app.handleRequest(w, req)
-
-		resp := w.Result()
-		body, _ := io.ReadAll(resp.Body)
-
-		test.AssertEqual(t, resp.StatusCode, 200, "")
-		test.AssertEqual(t, resp.Header.Get("Content-Type"), "text/javascript; charset=utf-8", "")
-		test.AssertEqual(t, resp.Header.Get("Content-Encoding"), "gzip", "")
-		responseContent := string(test.DecompressGzip(body))
 		test.AssertEqual(t, responseContent, content, "")
 	}
 }
 
-func TestIndexRequestGzip(t *testing.T) {
-	app, context := createTestAppWithInit(t, func(_ test.TestDir, params *ServerParams) {
-		params.CompressionThreshold = 10
-	})
-	content := context.ReadFile(IndexHtml)
-	parts := strings.Split(content, "<!--CONFIG-->")
+func TestIndexRequestBrotli(t *testing.T) {
+	for _, s := range []bool{false, true} {
+		for _, e := range []string{"*", "br"} {
+			app, context := createTestAppWithInit(t, func(context test.TestDir, params *ServerParams) {
+				params.CompressionThreshold = 10
+				context.CompressFile(IndexHtml)
+				if s {
+					context.RemoveFile("ngssc.json")
+				}
+			})
+			content := context.ReadFile(IndexHtml)
+			parts := strings.Split(content, "<!--CONFIG-->")
 
-	req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest("GET", "/", nil)
+			req.Header.Add("Accept-Encoding", e)
+			w := httptest.NewRecorder()
+			app.handleRequest(w, req)
+
+			resp := w.Result()
+			body, _ := io.ReadAll(resp.Body)
+
+			test.AssertEqual(t, resp.StatusCode, 200, "")
+			test.AssertEqual(t, resp.Header.Get("Content-Type"), "text/html; charset=utf-8", "")
+			test.AssertEqual(t, resp.Header.Get("Content-Encoding"), "br", "")
+			responseContent := string(test.DecompressBrotli(body))
+			test.AssertTrue(t, strings.HasPrefix(responseContent, parts[0]), "")
+			test.AssertTrue(t, strings.HasSuffix(responseContent, parts[1]), "")
+		}
+	}
+}
+
+func TestFileRequestGzip(t *testing.T) {
+	app, context := createTestApp(t)
+	context.CompressFile(Polyfill)
+	content := context.ReadFile(Polyfill)
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/%v", Polyfill), nil)
 	req.Header.Add("Accept-Encoding", "gzip")
 	w := httptest.NewRecorder()
 	app.handleRequest(w, req)
@@ -175,11 +131,39 @@ func TestIndexRequestGzip(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 
 	test.AssertEqual(t, resp.StatusCode, 200, "")
-	test.AssertEqual(t, resp.Header.Get("Content-Type"), "text/html; charset=utf-8", "")
+	test.AssertEqual(t, resp.Header.Get("Content-Type"), "text/javascript; charset=utf-8", "")
 	test.AssertEqual(t, resp.Header.Get("Content-Encoding"), "gzip", "")
 	responseContent := string(test.DecompressGzip(body))
-	test.AssertTrue(t, strings.HasPrefix(responseContent, parts[0]), "")
-	test.AssertTrue(t, strings.HasSuffix(responseContent, parts[1]), "")
+	test.AssertEqual(t, responseContent, content, "")
+}
+
+func TestIndexRequestGzip(t *testing.T) {
+	for _, s := range []bool{false, true} {
+		app, context := createTestAppWithInit(t, func(context test.TestDir, params *ServerParams) {
+			params.CompressionThreshold = 10
+			context.CompressFile(IndexHtml)
+			if s {
+				context.RemoveFile("ngssc.json")
+			}
+		})
+		content := context.ReadFile(IndexHtml)
+		parts := strings.Split(content, "<!--CONFIG-->")
+
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Add("Accept-Encoding", "gzip")
+		w := httptest.NewRecorder()
+		app.handleRequest(w, req)
+
+		resp := w.Result()
+		body, _ := io.ReadAll(resp.Body)
+
+		test.AssertEqual(t, resp.StatusCode, 200, "")
+		test.AssertEqual(t, resp.Header.Get("Content-Type"), "text/html; charset=utf-8", "")
+		test.AssertEqual(t, resp.Header.Get("Content-Encoding"), "gzip", "")
+		responseContent := string(test.DecompressGzip(body))
+		test.AssertTrue(t, strings.HasPrefix(responseContent, parts[0]), "")
+		test.AssertTrue(t, strings.HasSuffix(responseContent, parts[1]), "")
+	}
 }
 
 func TestMultipleIndex(t *testing.T) {
@@ -218,7 +202,7 @@ func TestNoNgsscJson(t *testing.T) {
 
 	test.AssertEqual(t, resp.StatusCode, 200, "")
 	test.AssertEqual(t, resp.Header.Get("Content-Type"), "text/html; charset=utf-8", "")
-	test.AssertContains(t, string(body), "<!--ngssc--><script>(function(self){Object.assign(self,{});})(window)</script><!--/ngssc-->", "")
+	test.AssertContains(t, string(body), "<!--CONFIG-->", "")
 }
 
 func TestNotFound(t *testing.T) {
@@ -262,24 +246,21 @@ func TestHeadRequest(t *testing.T) {
 	test.AssertEqual(t, string(body), "", "")
 }
 
-func TestIndexWithoutCache(t *testing.T) {
-	app, context := createTestAppWithInit(t, func(_ test.TestDir, params *ServerParams) {
-		params.CacheEnabled = false
+func TestLanguageRedirect(t *testing.T) {
+	app, _ := createTestAppWithInit(t, func(context test.TestDir, params *ServerParams) {
+		context.RemoveFile(IndexHtml)
+		context.CreateDirectory("de-CH").CreateFile("index.html", "content")
+		context.CreateDirectory("en").CreateFile("index.html", "content")
 	})
-	content := context.ReadFile(IndexHtml)
-	parts := strings.Split(content, "<!--CONFIG-->")
 
 	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
 	app.handleRequest(w, req)
 
 	resp := w.Result()
-	body, _ := io.ReadAll(resp.Body)
 
-	test.AssertEqual(t, resp.StatusCode, 200, "")
-	test.AssertEqual(t, resp.Header.Get("Content-Type"), "text/html; charset=utf-8", "")
-	test.AssertTrue(t, strings.HasPrefix(string(body), parts[0]), "")
-	test.AssertTrue(t, strings.HasSuffix(string(body), parts[1]), "")
+	test.AssertEqual(t, resp.StatusCode, http.StatusTemporaryRedirect, "")
+	test.AssertEqual(t, resp.Header.Get("Location"), "/de-CH", "")
 }
 
 func createTestApp(t *testing.T) (App, test.TestDir) {
@@ -294,9 +275,8 @@ func createTestAppWithInit(t *testing.T, init func(context test.TestDir, params 
 		Port:                 0,
 		DotEnvPath:           filepath.Join(context.Path, ".env"),
 		CacheControlMaxAge:   31536000,
-		CacheEnabled:         true,
-		CacheBuffer:          50 * 1024,
-		CompressionThreshold: 1024,
+		CacheSize:            constants.DefaultCacheSize,
+		CompressionThreshold: constants.DefaultCompressionThreshold,
 		LogLevel:             "ERROR",
 		CspTemplate:          "default-src 'self'; style-src 'self' ${NGSSC_CSP_NONCE}; script-src 'self' ${NGSSC_CSP_HASH} ${NGSSC_CSP_NONCE};",
 	}

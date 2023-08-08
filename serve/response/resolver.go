@@ -3,8 +3,6 @@ package response
 import (
 	"fmt"
 	"mime"
-	"ngstaticserver/constants"
-	"ngstaticserver/serve/acceptencoding"
 	"os"
 	"path"
 	"path/filepath"
@@ -12,117 +10,171 @@ import (
 	"strings"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"golang.org/x/exp/slog"
 )
 
+type IndexResolver func(filePath string) *string
+
 type EntityResolver struct {
 	root          string
-	indexResolver func(filePath string) *string
+	indexPaths    []string
+	indexResolver IndexResolver
+	cache         *lru.TwoQueueCache[string, ResponseEntity]
 }
 
 var fingerprintRegex, _ = regexp.Compile("\\.[a-zA-Z0-9]{16,}\\.(js|mjs|css)$")
 
-func CreateEntityResolver(root string) EntityResolver {
-	indexHtmlFiles := findIndexHtmlFiles(root)
-	indexResolver := func(filePath string) *string {
-		return nil
-	}
-	if len(indexHtmlFiles) == 1 {
-		indexHtmlPath := indexHtmlFiles[0]
-		indexResolver = func(filePath string) *string {
-			return &indexHtmlPath
-		}
-	} else if len(indexHtmlFiles) > 1 {
-		indexResolver = func(filePath string) *string {
-			return findFileUpwards(root, filePath, "index.html")
-		}
-	}
+func CreateEntityResolver(root string, cacheBuffer int) EntityResolver {
+	cache, _ := lru.New2Q[string, ResponseEntity](cacheBuffer)
+	indexPaths := findIndexPaths(root)
 	return EntityResolver{
 		root:          root,
-		indexResolver: indexResolver,
+		indexPaths:    indexPaths,
+		indexResolver: createIndexResolver(root, indexPaths),
+		cache:         cache,
 	}
 }
 
-func findIndexHtmlFiles(root string) []string {
-	indexHtmlFiles := make([]string, 0)
+func findIndexPaths(root string) []string {
+	indexPaths := make([]string, 0)
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err == nil && strings.HasSuffix(path, "/index.html") {
-			indexHtmlFiles = append(indexHtmlFiles, path)
+			indexPath, _ := filepath.Rel(root, filepath.Dir(path))
+			indexPaths = append(indexPaths, indexPath)
 		}
-		return nil
+		return err
 	})
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed to look up index.html files in %v: %v", root, err))
 	}
 
-	return indexHtmlFiles
+	return indexPaths
 }
 
-func findFileUpwards(root string, filePath string, fileName string) *string {
-	resolvedPath := path.Join(root, filePath)
-
-	for {
-		indexPath := path.Join(resolvedPath, fileName)
-		if fileExists(indexPath) {
-			return &indexPath
+func createIndexResolver(root string, indexPaths []string) IndexResolver {
+	if len(indexPaths) == 1 && indexPaths[0] == "." {
+		indexHtmlPath := filepath.Join(root, "index.html")
+		return func(filePath string) *string {
+			return &indexHtmlPath
 		}
+	} else if len(indexPaths) >= 1 {
+		return func(filePath string) *string {
+			resolvedPath := path.Join(root, filePath)
+			for {
+				indexPath := path.Join(resolvedPath, "index.html")
+				if fileExists(indexPath) {
+					return &indexPath
+				} else if rel, _ := filepath.Rel(root, resolvedPath); rel == "." {
+					break
+				}
 
-		rel, _ := filepath.Rel(root, resolvedPath)
-		if rel == "." {
-			break
+				resolvedPath = path.Dir(resolvedPath)
+			}
+
+			return nil
 		}
-
-		resolvedPath = path.Dir(resolvedPath)
+	} else {
+		return func(filePath string) *string {
+			return nil
+		}
 	}
-
-	return nil
 }
 
 func (resolver EntityResolver) Resolve(filePath string) ResponseEntity {
 	resolvedPath := path.Join(resolver.root, filePath)
-	if fileExists(resolvedPath) {
+	entity, ok := resolver.cache.Get(resolvedPath)
+	if ok && entity.IsIndexProxy() {
+		entity, ok = resolver.cache.Get(filepath.Dir(entity.Path))
+	}
+
+	if ok {
+		return entity
+	} else if fileExists(resolvedPath) {
 		var category FileType
 		category = FILE
 		if fingerprintRegex.MatchString(filePath) {
 			category = FINGERPRINTED_FILE
 		}
 
-		var availableEncoding acceptencoding.Encoding
-		if fileExists(resolvedPath + ".br") {
-			availableEncoding = availableEncoding ^ acceptencoding.BROTLI
+		fileSize, modTime, contentType := fileMeta(resolvedPath)
+		contentBrotli := readFileDebugLogOnError(resolvedPath + ".br")
+		contentGzip := readFileDebugLogOnError(resolvedPath + ".gz")
+		entity = ResponseEntity{
+			Path:          resolvedPath,
+			fileType:      category,
+			Size:          fileSize,
+			ModTime:       modTime,
+			ContentType:   contentType,
+			Compressed:    contentBrotli != nil && contentGzip != nil,
+			Content:       readFile(resolvedPath),
+			ContentBrotli: contentBrotli,
+			ContentGzip:   contentGzip,
 		}
-		if fileExists(resolvedPath + ".gz") {
-			availableEncoding = availableEncoding ^ acceptencoding.GZIP
+		resolver.cache.Add(resolvedPath, entity)
+	} else if indexPath := resolver.indexResolver(filePath); indexPath != nil {
+		fileSize, modTime, contentType := fileMeta(*indexPath)
+		if isSameIndexPath(*indexPath, resolvedPath) {
+			entity = ResponseEntity{
+				Path:          *indexPath,
+				fileType:      INDEX,
+				Size:          fileSize,
+				ModTime:       modTime,
+				ContentType:   contentType,
+				Compressed:    true,
+				Content:       readFile(*indexPath),
+				ContentBrotli: readFileDebugLogOnError(*indexPath + ".br"),
+				ContentGzip:   readFileDebugLogOnError(*indexPath + ".gz"),
+			}
+			resolver.cache.Add(resolvedPath, entity)
+		} else {
+			resolver.cache.Add(resolvedPath, ResponseEntity{
+				Path:     *indexPath,
+				fileType: INDEX_PROXY,
+			})
+			entity = ResponseEntity{
+				Path:          *indexPath,
+				fileType:      INDEX,
+				Size:          fileSize,
+				ModTime:       modTime,
+				ContentType:   contentType,
+				Compressed:    true,
+				Content:       readFile(*indexPath),
+				ContentBrotli: readFileDebugLogOnError(*indexPath + ".br"),
+				ContentGzip:   readFileDebugLogOnError(*indexPath + ".gz"),
+			}
+			resolver.cache.Add(filepath.Dir(*indexPath), entity)
 		}
+	} else {
+		entity = ResponseEntity{fileType: NOT_FOUND}
+		resolver.cache.Add(resolvedPath, entity)
+	}
 
-		fileSize, modTime := fileMeta(resolvedPath)
-		mimeType := mime.TypeByExtension(filepath.Ext(resolvedPath))
-		return ResponseEntity{
-			Path:         resolvedPath,
-			fileType:     category,
-			Size:         fileSize,
-			ModTime:      modTime,
-			ContentType:  mimeType,
-			Compressable: !availableEncoding.NoCompression() || constants.IsCompressionMimeType(mimeType),
-			encoding:     availableEncoding,
+	return entity
+}
+
+func (resolver EntityResolver) MatchLanguage(languages []string) string {
+	if len(resolver.indexPaths) == 0 {
+		return ""
+	}
+
+	for _, l := range languages {
+		for _, a := range resolver.indexPaths {
+			if l == a {
+				return l
+			}
 		}
 	}
 
-	indexPath := resolver.indexResolver(filePath)
-	if indexPath != nil {
-		fileSize, modTime := fileMeta(*indexPath)
-		return ResponseEntity{
-			Path:         *indexPath,
-			fileType:     INDEX,
-			Size:         fileSize,
-			ModTime:      modTime,
-			ContentType:  mime.TypeByExtension(filepath.Ext(*indexPath)),
-			Compressable: true,
-			encoding:     acceptencoding.NO_COMPRESSION,
+	for _, l := range languages {
+		for _, a := range resolver.indexPaths {
+			if strings.HasPrefix(a, l) || strings.HasPrefix(l, a) {
+				return a
+			}
 		}
 	}
 
-	return ResponseEntity{fileType: NOT_FOUND}
+	return resolver.indexPaths[0]
 }
 
 func fileExists(filePath string) bool {
@@ -130,10 +182,31 @@ func fileExists(filePath string) bool {
 	return err == nil && !info.IsDir()
 }
 
-func fileMeta(filePath string) (size int64, modTime time.Time) {
+func fileMeta(filePath string) (size int64, modTime time.Time, contentType string) {
 	info, err := os.Stat(filePath)
 	if err != nil {
-		return 0, time.Time{}
+		return 0, time.Time{}, mime.TypeByExtension(filepath.Ext(filePath))
 	}
-	return info.Size(), time.Time{}
+	return info.Size(), info.ModTime(), mime.TypeByExtension(filepath.Ext(filePath))
+}
+
+func isSameIndexPath(indexPath, requestPath string) bool {
+	rel, _ := filepath.Rel(filepath.Dir(indexPath), requestPath)
+	return rel == "."
+}
+
+func readFile(filePath string) []byte {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed to read %v", filePath))
+	}
+	return content
+}
+
+func readFileDebugLogOnError(filePath string) []byte {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		slog.Debug(fmt.Sprintf("Failed to read %v", filePath))
+	}
+	return content
 }
