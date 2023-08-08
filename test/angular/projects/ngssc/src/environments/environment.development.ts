@@ -1,3 +1,4 @@
 export const environment = {
-  label: 'dev'
+  label: 'dev',
+  cspNonce: '',
 };
