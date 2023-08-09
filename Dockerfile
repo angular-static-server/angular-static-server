@@ -3,6 +3,8 @@
 ############################
 FROM golang:1.20-alpine AS builder
 
+ARG RELEASE_VERSION=dev
+
 WORKDIR /usr/src/app
 
 # pre-copy/cache go.mod for pre-downloading dependencies and only redownloading them in subsequent builds if they change
@@ -10,7 +12,7 @@ COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
 COPY . .
-RUN go build -v -o /usr/local/bin/ng-server
+RUN go build -v -ldflags="-X main.CliVersion=$VERSION" -o /usr/local/bin/ng-server
 
 #########################################
 # Create minimal image for Angular Server
