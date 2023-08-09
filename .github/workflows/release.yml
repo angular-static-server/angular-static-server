@@ -22,8 +22,8 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version-file: '.nvmrc'
-          cache: 'yarn'
-          cache-dependency-path: './test/angular/yarn.lock'
+          cache: 'npm'
+          cache-dependency-path: 'test/angular/package-lock.json'
       - name: Install Angular Test App
         run: yarn install --frozen-lockfile --non-interactive
         working-directory: ./test/angular
