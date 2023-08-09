@@ -23,6 +23,7 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: 'yarn'
+          cache-dependency-path: './test/angular/yarn.lock'
       - name: Install Angular Test App
         run: yarn install --frozen-lockfile --non-interactive
         working-directory: ./test/angular
