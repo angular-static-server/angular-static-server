@@ -28,5 +28,5 @@ CMD ["ng-server", "serve"]
 FROM server AS server-test
 
 ENV _LOG_LEVEL=DEBUG
-COPY --chmod=644 test/ngssc-app/ .
+COPY --chmod=644 test/angular/dist/ngssc .
 RUN ["ng-server", "compress"]

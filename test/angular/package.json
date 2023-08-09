@@ -1,5 +1,6 @@
 {
   "scripts": {
+    "postinstall": "yarn build",
     "build": "ng build minimal && ng build i18n && ng run ngssc:ngsscbuild:production"
   },
   "name": "demo",

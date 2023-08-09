@@ -8,6 +8,7 @@ import (
 	"ngstaticserver/constants"
 	"ngstaticserver/test"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -16,7 +17,6 @@ import (
 )
 
 var Licenses = "3rdpartylicenses.txt"
-var Polyfill = "polyfills.93b1b275c1c94b15.js"
 var IndexHtml = "index.html"
 
 func TestAction(t *testing.T) {
@@ -67,10 +67,11 @@ func TestFileRequest(t *testing.T) {
 func TestFileRequestBrotli(t *testing.T) {
 	for _, e := range []string{"*", "br", "gz, deflate, br"} {
 		app, context := createTestApp(t)
-		context.CompressFile(Polyfill)
-		content := context.ReadFile(Polyfill)
+		polyfill := context.FindFile("polyfills.")
+		context.CompressFile(polyfill)
+		content := context.ReadFile(polyfill)
 
-		req := httptest.NewRequest("GET", fmt.Sprintf("/%v", Polyfill), nil)
+		req := httptest.NewRequest("GET", fmt.Sprintf("/%v", polyfill), nil)
 		req.Header.Add("Accept-Encoding", e)
 		w := httptest.NewRecorder()
 		app.handleRequest(w, req)
@@ -90,6 +91,7 @@ func TestIndexRequestBrotli(t *testing.T) {
 	for _, s := range []bool{false, true} {
 		for _, e := range []string{"*", "br"} {
 			app, context := createTestAppWithInit(t, func(context test.TestDir, params *ServerParams) {
+				context.ImportTestApp("ngssc")
 				params.CompressionThreshold = 10
 				context.CompressFile(IndexHtml)
 				if s {
@@ -119,10 +121,11 @@ func TestIndexRequestBrotli(t *testing.T) {
 
 func TestFileRequestGzip(t *testing.T) {
 	app, context := createTestApp(t)
-	context.CompressFile(Polyfill)
-	content := context.ReadFile(Polyfill)
+	polyfill := context.FindFile("polyfills.")
+	context.CompressFile(polyfill)
+	content := context.ReadFile(polyfill)
 
-	req := httptest.NewRequest("GET", fmt.Sprintf("/%v", Polyfill), nil)
+	req := httptest.NewRequest("GET", fmt.Sprintf("/%v", polyfill), nil)
 	req.Header.Add("Accept-Encoding", "gzip")
 	w := httptest.NewRecorder()
 	app.handleRequest(w, req)
@@ -140,6 +143,7 @@ func TestFileRequestGzip(t *testing.T) {
 func TestIndexRequestGzip(t *testing.T) {
 	for _, s := range []bool{false, true} {
 		app, context := createTestAppWithInit(t, func(context test.TestDir, params *ServerParams) {
+			context.ImportTestApp("ngssc")
 			params.CompressionThreshold = 10
 			context.CompressFile(IndexHtml)
 			if s {
@@ -169,13 +173,12 @@ func TestIndexRequestGzip(t *testing.T) {
 func TestMultipleIndex(t *testing.T) {
 	var expectedIndexContent string
 	app, _ := createTestAppWithInit(t, func(context test.TestDir, params *ServerParams) {
-		expectedIndexContent = context.ReadFile(IndexHtml)
-		expectedIndexContent = strings.ReplaceAll(expectedIndexContent, "<app-root></app-root>", "<app-root><div></div></app-root>")
-		context.CreateDirectory("example").CreateFile(IndexHtml, expectedIndexContent)
+		context.ImportTestApp("i18n")
+		expectedIndexContent = context.ReadFile("de-CH/index.html")
 	})
-	parts := strings.Split(expectedIndexContent, "<!--CONFIG-->")
+	parts := regexp.MustCompile("(</title>|\\${NGSSC_CSP_NONCE})").Split(expectedIndexContent, 3)
 
-	req := httptest.NewRequest("GET", "/example/path/to/request", nil)
+	req := httptest.NewRequest("GET", "/de-CH/example/path/to/request", nil)
 	w := httptest.NewRecorder()
 	app.handleRequest(w, req)
 
@@ -185,12 +188,13 @@ func TestMultipleIndex(t *testing.T) {
 	test.AssertEqual(t, resp.StatusCode, 200, "")
 	test.AssertEqual(t, resp.Header.Get("Content-Type"), "text/html; charset=utf-8", "")
 	test.AssertTrue(t, strings.HasPrefix(string(body), parts[0]), "")
-	test.AssertTrue(t, strings.HasSuffix(string(body), parts[1]), "")
+	test.AssertTrue(t, strings.Contains(string(body), parts[1]), "")
+	test.AssertTrue(t, strings.HasSuffix(string(body), parts[2]), "")
 }
 
 func TestNoNgsscJson(t *testing.T) {
 	app, _ := createTestAppWithInit(t, func(context test.TestDir, _ *ServerParams) {
-		context.RemoveFile("ngssc.json")
+		context.ImportTestApp("minimal")
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
@@ -202,13 +206,11 @@ func TestNoNgsscJson(t *testing.T) {
 
 	test.AssertEqual(t, resp.StatusCode, 200, "")
 	test.AssertEqual(t, resp.Header.Get("Content-Type"), "text/html; charset=utf-8", "")
-	test.AssertContains(t, string(body), "<!--CONFIG-->", "")
+	test.AssertTrue(t, !strings.Contains(string(body), "ngssc"), "")
 }
 
 func TestNotFound(t *testing.T) {
-	app, _ := createTestAppWithInit(t, func(context test.TestDir, params *ServerParams) {
-		context.RemoveFile(IndexHtml)
-	})
+	app, _ := createTestAppWithInit(t, func(context test.TestDir, params *ServerParams) {})
 
 	req := httptest.NewRequest("GET", "/example.txt", nil)
 	w := httptest.NewRecorder()
@@ -248,9 +250,7 @@ func TestHeadRequest(t *testing.T) {
 
 func TestLanguageRedirect(t *testing.T) {
 	app, _ := createTestAppWithInit(t, func(context test.TestDir, params *ServerParams) {
-		context.RemoveFile(IndexHtml)
-		context.CreateDirectory("de-CH").CreateFile("index.html", "content")
-		context.CreateDirectory("en").CreateFile("index.html", "content")
+		context.ImportTestApp("i18n")
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
@@ -264,12 +264,13 @@ func TestLanguageRedirect(t *testing.T) {
 }
 
 func createTestApp(t *testing.T) (App, test.TestDir) {
-	return createTestAppWithInit(t, func(context test.TestDir, params *ServerParams) {})
+	return createTestAppWithInit(t, func(context test.TestDir, params *ServerParams) {
+		context.ImportTestApp("ngssc")
+	})
 }
 
 func createTestAppWithInit(t *testing.T, init func(context test.TestDir, params *ServerParams)) (App, test.TestDir) {
 	context := test.NewTestDir(t)
-	context.ImportTestNgsscApp()
 	params := &ServerParams{
 		WorkingDirectory:     context.Path,
 		Port:                 0,

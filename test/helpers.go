@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -28,10 +29,20 @@ func (context TestDir) CreateFile(fileName string, content string) {
 	os.WriteFile(filePath, []byte(content), 0644)
 }
 
-func (context TestDir) ImportTestNgsscApp() {
+func (context TestDir) ImportTestApp(app string) {
 	context.t.Helper()
 	_, b, _, _ := runtime.Caller(0)
-	testAppDir := filepath.Join(filepath.Dir(b), "./ngssc-app")
+	testAppDir := filepath.Join(filepath.Dir(b), "angular/dist", app)
+	if _, err := os.Stat(testAppDir); os.IsNotExist(err) {
+		// Runs yarn build in the angular directory
+		cmd := exec.Command("yarn", "build")
+		cmd.Dir = filepath.Join(filepath.Dir(b), "angular")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			context.t.Fatal(err)
+		}
+		fmt.Println(output)
+	}
 	copyDir(testAppDir, context.Path)
 }
 
@@ -39,6 +50,26 @@ func (context TestDir) CompressFile(filePath string) {
 	context.t.Helper()
 	content := context.ReadFile(filePath)
 	CompressToFile([]byte(content), filepath.Join(context.Path, filePath))
+}
+
+func (context TestDir) FindFile(prefix string) string {
+	context.t.Helper()
+	files := make([]string, 0)
+	err := filepath.Walk(context.Path, func(path string, info os.FileInfo, err error) error {
+		if err == nil && strings.Contains(path, "/"+prefix) {
+			files = append(files, path)
+		}
+		return err
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	result, err := filepath.Rel(context.Path, files[0])
+	if err != nil {
+		panic(err)
+	}
+	return result
 }
 
 func (context TestDir) ReadFile(fileName string) string {

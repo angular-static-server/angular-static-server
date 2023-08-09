@@ -14,7 +14,7 @@ import (
 
 func TestAction(t *testing.T) {
 	context := test.NewTestDir(t)
-	context.ImportTestNgsscApp()
+	context.ImportTestApp("i18n")
 	test.Chdir(t, context.Path)
 	app := &cli.App{
 		Commands: []*cli.Command{
@@ -37,7 +37,7 @@ func TestAction(t *testing.T) {
 
 func TestCompressAction(t *testing.T) {
 	context := test.NewTestDir(t)
-	context.ImportTestNgsscApp()
+	context.ImportTestApp("i18n")
 	params := &CompressParams{
 		Threshold:        constants.DefaultCompressionThreshold,
 		WorkingDirectory: context.Path,

@@ -1,9 +1,0 @@
-{
-  "environmentVariables": [
-    "NGSSC_CSP_NONCE",
-    "TITLE",
-    "MANUAL_VALUE"
-  ],
-  "filePattern": "index.html",
-  "variant": "process"
-}

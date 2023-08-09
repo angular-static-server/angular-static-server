@@ -19,6 +19,13 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version-file: 'go.mod'
+      - uses: actions/setup-node@v3
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'yarn'
+      - name: Install Angular Test App
+        run: yarn install --frozen-lockfile --non-interactive
+        working-directory: ./test/angular
       - name: Lint
         run: gofmt -l .
       - name: Build
@@ -45,8 +52,8 @@ jobs:
       - name: 'Container: Publish image'
         run: docker push $IMAGE_REPO:$VERSION
       - name: 'Container: Publish image as major version'
-        if: contains(github.ref_name, "-") == false
+        if: contains(github.ref_name, '-') == false
         run: docker push $IMAGE_REPO:${{ steps.major-version.outputs.version }}
       - name: 'Container: Publish image as latest'
-        if: contains(github.ref_name, "-") == false
+        if: contains(github.ref_name, '-') == false
         run: docker push $IMAGE_REPO:latest
