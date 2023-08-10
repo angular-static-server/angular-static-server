@@ -1,6 +1,6 @@
 #!/bin/sh
 
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+SCRIPT_DIR=$(dirname $(realpath -s $0))
 NG_DIR="$SCRIPT_DIR/angular"
 
 cd $NG_DIR && yarn build

@@ -32,3 +32,12 @@ FROM server AS server-test
 ENV _LOG_LEVEL=DEBUG
 COPY --chmod=644 test/angular/dist/ngssc .
 RUN ["ng-server", "compress"]
+
+#############################
+# Create test image with i18n
+#############################
+FROM server AS server-test-i18n
+
+ENV _LOG_LEVEL=DEBUG
+COPY --chmod=644 test/angular/dist/i18n .
+RUN ["ng-server", "compress"]
