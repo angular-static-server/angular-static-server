@@ -230,7 +230,8 @@ func (app *App) handleRequest(w http.ResponseWriter, r *http.Request) {
 	if entity.IsFingerprinted() && app.params.CacheControlMaxAge > 0 {
 		w.Header().Set("Cache-Control", fmt.Sprintf("max-age=%d", app.params.CacheControlMaxAge))
 	} else {
-		w.Header().Set("Cache-Control", "no-store")
+		// https://web.dev/http-cache/?hl=en#flowchart
+		w.Header().Set("Cache-Control", "no-cache")
 	}
 
 	if entity.ContentType != "" {
