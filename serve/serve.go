@@ -80,6 +80,11 @@ var Flags = []cli.Flag{
 			CspNonceName,
 		),
 	},
+	&cli.StringFlag{
+		EnvVars: []string{"_X_FRAME_OPTIONS"},
+		Name:    "x-frame-options",
+		Value:   "DENY",
+	},
 }
 
 type ServerParams struct {
@@ -93,6 +98,7 @@ type ServerParams struct {
 	LogLevel             string
 	LogFormat            string
 	CspTemplate          string
+	XFrameOptions        string
 }
 
 type App struct {
@@ -161,6 +167,7 @@ func parseServerParams(c *cli.Context) (*ServerParams, error) {
 		LogLevel:             c.String("log-level"),
 		LogFormat:            c.String("log-format"),
 		CspTemplate:          c.String("csp-template"),
+		XFrameOptions:        c.String("x-frame-options"),
 	}, nil
 }
 
@@ -296,6 +303,10 @@ func (app *App) renderIndex(
 	entity response.ResponseEntity,
 	encoding acceptencoding.Encoding,
 ) []byte {
+	if len(app.params.XFrameOptions) > 0 {
+		w.Header().Add("X-Frame-Options", app.params.XFrameOptions)
+	}
+
 	cspNonce := ""
 	if app.isCspApplicable(entity.Content) && app.params.CspTemplate != "" {
 		cspNonce = generateNonce()
