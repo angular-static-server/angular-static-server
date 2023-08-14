@@ -8,9 +8,8 @@ import (
 	"net/http"
 	"ngstaticserver/compress"
 	"ngstaticserver/constants"
-	"ngstaticserver/ngsscjson"
-	"ngstaticserver/serve/acceptencoding"
-	"ngstaticserver/serve/dotenv"
+	"ngstaticserver/serve/config"
+	"ngstaticserver/serve/headers"
 	"ngstaticserver/serve/response"
 	"os"
 	"path/filepath"
@@ -21,11 +20,9 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-const CspNonceName = "NGSSC_CSP_NONCE"
-const CspHashName = "NGSSC_CSP_HASH"
+const CspNonceName = "NGSS_CSP_NONCE"
 
 var CspNoncePlaceholder = fmt.Sprintf("${%v}", CspNonceName)
-var CspHashPlaceholder = fmt.Sprintf("${%v}", CspHashName)
 
 var Flags = []cli.Flag{
 	&cli.IntFlag{
@@ -73,12 +70,22 @@ var Flags = []cli.Flag{
 	&cli.StringFlag{
 		EnvVars: []string{"_CSP_TEMPLATE"},
 		Name:    "csp-template",
-		Value: fmt.Sprintf(
-			"default-src 'self'; style-src 'self' ${%v}; script-src 'self' ${%v} ${%v};",
-			CspNonceName,
-			CspHashName,
-			CspNonceName,
-		),
+		Value:   "default-src 'self'; style-src 'self' ${NGSS_CSP_NONCE} ${_CSP_STYLE_SRC}; script-src 'self' ${NGSS_CSP_NONCE} ${_CSP_SCRIPT_SRC}; font-src 'self' ${_CSP_FONT_SRC};",
+	},
+	&cli.StringFlag{
+		EnvVars: []string{"_CSP_STYLE_SRC"},
+		Name:    "csp-style-src",
+		Value:   "",
+	},
+	&cli.StringFlag{
+		EnvVars: []string{"_CSP_SCRIPT_SRC"},
+		Name:    "csp-script-src",
+		Value:   "",
+	},
+	&cli.StringFlag{
+		EnvVars: []string{"_CSP_FONT_SRC"},
+		Name:    "csp-font-src",
+		Value:   "",
 	},
 	&cli.StringFlag{
 		EnvVars: []string{"_X_FRAME_OPTIONS"},
@@ -98,14 +105,18 @@ type ServerParams struct {
 	LogLevel             string
 	LogFormat            string
 	CspTemplate          string
+	CspScriptSrc         string
+	CspStyleSrc          string
+	CspFontSrc           string
 	XFrameOptions        string
 }
 
 type App struct {
-	params      *ServerParams
-	resolver    response.EntityResolver
-	ngsscConfig ngsscjson.NgsscConfig
-	env         dotenv.DotEnv
+	params       *ServerParams
+	resolver     response.EntityResolver
+	appVariables *config.AppVariables
+	env          *config.DotEnv
+	fileWatcher  *config.FileWatcher
 }
 
 func Action(c *cli.Context) error {
@@ -167,52 +178,38 @@ func parseServerParams(c *cli.Context) (*ServerParams, error) {
 		LogLevel:             c.String("log-level"),
 		LogFormat:            c.String("log-format"),
 		CspTemplate:          c.String("csp-template"),
+		CspScriptSrc:         c.String("csp-script-src"),
+		CspStyleSrc:          c.String("csp-style-src"),
+		CspFontSrc:           c.String("csp-font-src"),
 		XFrameOptions:        c.String("x-frame-options"),
 	}, nil
 }
 
 func createApp(params *ServerParams) App {
-	ngsscConfig := tryReadNgsscJson(params)
-	return App{
-		params:      params,
-		resolver:    response.CreateEntityResolver(params.WorkingDirectory, params.CacheSize),
-		ngsscConfig: ngsscConfig,
-		env: dotenv.Create(params.DotEnvPath, func(envVariables map[string]*string) {
-			if len(ngsscConfig.EnvironmentVariables) > 0 {
-				ngsscConfig.MergeVariables(envVariables)
-			} else {
-				ngsscConfig.PopulatedEnvironmentVariables = envVariables
-			}
-		}),
-	}
-}
-
-func tryReadNgsscJson(params *ServerParams) ngsscjson.NgsscConfig {
-	ngsscjsonPath := filepath.Join(params.WorkingDirectory, "ngssc.json")
-	info, err := os.Stat(ngsscjsonPath)
-	if err == nil && !info.IsDir() {
-		slog.Info(fmt.Sprintf("Detected ngssc.json file at %v. Reading configuration.", ngsscjsonPath))
-		ngsscConfig, err := ngsscjson.NgsscJsonConfigFromPath(ngsscjsonPath)
-		if err == nil {
-			return ngsscConfig
-		}
-		slog.Warn(fmt.Sprintf("%v, creating default configuration", err))
-	}
-
-	return ngsscjson.NgsscConfig{
-		FilePath:                      params.WorkingDirectory,
-		Variant:                       "global",
-		EnvironmentVariables:          make([]string, 0),
-		PopulatedEnvironmentVariables: make(map[string]*string),
-		FilePattern:                   "**/index.html",
-	}
+	fileWatcher := config.CreateFileWatcher()
+	appVariables := config.InitializeAppVariables(params.WorkingDirectory)
+	dotEnv := config.CreateDotEnv(params.DotEnvPath, appVariables.MergeVariables)
+	fileWatcher.Watch(dotEnv)
+	entityResolver := response.CreateEntityResolver(params.WorkingDirectory, params.CacheSize)
+	return App{params, entityResolver, appVariables, dotEnv, fileWatcher}
 }
 
 func (app *App) Close() {
-	app.env.Close()
+	app.fileWatcher.Close()
 }
 
-func (app *App) handleRequest(w http.ResponseWriter, r *http.Request) {
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (lrw *loggingResponseWriter) WriteHeader(code int) {
+	lrw.statusCode = code
+	lrw.ResponseWriter.WriteHeader(code)
+}
+
+func (app *App) handleRequest(rw http.ResponseWriter, r *http.Request) {
+	w := &loggingResponseWriter{rw, http.StatusOK}
 	requestIdentity := fmt.Sprintf("%v %v %v", r.Method, r.URL.Path, r.Proto)
 	slog.Debug(requestIdentity, "state", "request start")
 	if r.Method != "GET" && r.Method != "HEAD" {
@@ -234,7 +231,10 @@ func (app *App) handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if entity.IsFingerprinted() && app.params.CacheControlMaxAge > 0 {
+	if entity.IsIndex() {
+		// Due to CSP limitations (stale nonce), we cannot allow browsers to cache index responses
+		w.Header().Set("Cache-Control", "no-store")
+	} else if entity.IsFingerprinted() && app.params.CacheControlMaxAge > 0 {
 		w.Header().Set("Cache-Control", fmt.Sprintf("max-age=%d", app.params.CacheControlMaxAge))
 	} else {
 		// https://web.dev/http-cache/?hl=en#flowchart
@@ -245,7 +245,7 @@ func (app *App) handleRequest(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", entity.ContentType)
 	}
 
-	var encoding acceptencoding.Encoding = acceptencoding.NO_COMPRESSION
+	var encoding headers.Encoding = headers.NO_COMPRESSION
 	if app.params.CompressionThreshold <= entity.Size && entity.Compressed {
 		slog.Debug(
 			requestIdentity,
@@ -255,15 +255,15 @@ func (app *App) handleRequest(w http.ResponseWriter, r *http.Request) {
 				app.params.CompressionThreshold,
 				entity.Size,
 				entity.Compressed))
-		acceptedEncoding := acceptencoding.ResolveAcceptEncoding(r)
+		acceptedEncoding := headers.ResolveAcceptEncoding(r)
 		if acceptedEncoding.AllowsBrotli() {
 			slog.Debug(requestIdentity, "state", "compression with brotli")
 			w.Header().Set("Content-Encoding", "br")
-			encoding = acceptencoding.BROTLI
+			encoding = headers.BROTLI
 		} else if acceptedEncoding.AllowsGzip() {
 			slog.Debug(requestIdentity, "state", "compression with gzip")
 			w.Header().Set("Content-Encoding", "gzip")
-			encoding = acceptencoding.GZIP
+			encoding = headers.GZIP
 		}
 	} else {
 		slog.Debug(
@@ -288,7 +288,7 @@ func (app *App) handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.ServeContent(w, r, entity.Path, entity.ModTime, bytes.NewReader(content))
-	slog.Info(requestIdentity, "status", http.StatusOK)
+	slog.Info(requestIdentity, "status", w.statusCode)
 }
 
 func errorResponse(w http.ResponseWriter, requestIdentity string, statusCode int, statusMessage string) {
@@ -301,7 +301,7 @@ func errorResponse(w http.ResponseWriter, requestIdentity string, statusCode int
 func (app *App) renderIndex(
 	w http.ResponseWriter,
 	entity response.ResponseEntity,
-	encoding acceptencoding.Encoding,
+	encoding headers.Encoding,
 ) []byte {
 	if len(app.params.XFrameOptions) > 0 {
 		w.Header().Add("X-Frame-Options", app.params.XFrameOptions)
@@ -310,25 +310,26 @@ func (app *App) renderIndex(
 	cspNonce := ""
 	if app.isCspApplicable(entity.Content) && app.params.CspTemplate != "" {
 		cspNonce = generateNonce()
-		_, ok := app.ngsscConfig.PopulatedEnvironmentVariables[CspNonceName]
-		if ok {
-			app.ngsscConfig.PopulatedEnvironmentVariables[CspNonceName] = &cspNonce
-		}
+		app.appVariables.Update(CspNonceName, cspNonce)
 		cspValue := app.params.CspTemplate
-		cspValue = strings.ReplaceAll(cspValue, CspHashPlaceholder, app.ngsscConfig.GenerateIifeScriptHash(""))
 		cspValue = strings.ReplaceAll(cspValue, CspNoncePlaceholder, fmt.Sprintf("'nonce-%v'", cspNonce))
+		cspValue = strings.ReplaceAll(cspValue, "${_CSP_STYLE_SRC}", app.params.CspStyleSrc)
+		cspValue = strings.ReplaceAll(cspValue, "${_CSP_SCRIPT_SRC}", app.params.CspScriptSrc)
+		cspValue = strings.ReplaceAll(cspValue, "${_CSP_FONT_SRC}", app.params.CspFontSrc)
 		w.Header().Set("Content-Security-Policy", cspValue)
-	} else if len(app.ngsscConfig.PopulatedEnvironmentVariables) == 0 {
+	} else if app.appVariables.IsEmpty() {
 		if encoding.ContainsBrotli() && entity.ContentBrotli != nil {
+			w.Header().Set("Content-Encoding", "br")
 			return entity.ContentBrotli
 		} else if encoding.ContainsGzip() && entity.ContentGzip != nil {
+			w.Header().Set("Content-Encoding", "gzip")
 			return entity.ContentGzip
 		} else {
 			return entity.Content
 		}
 	}
 
-	content := app.ngsscConfig.Apply(entity.Content)
+	content := app.appVariables.Insert(entity.Content, cspNonce)
 	if cspNonce != "" {
 		content = strings.ReplaceAll(content, CspNoncePlaceholder, cspNonce)
 	}
@@ -345,8 +346,7 @@ func (app *App) renderIndex(
 }
 
 func (app *App) isCspApplicable(indexContent []byte) bool {
-	_, ok := app.ngsscConfig.PopulatedEnvironmentVariables[CspNonceName]
-	return ok || strings.Contains(string(indexContent), CspNoncePlaceholder)
+	return app.appVariables.Has(CspNonceName) || strings.Contains(string(indexContent), CspNoncePlaceholder)
 }
 
 const chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"

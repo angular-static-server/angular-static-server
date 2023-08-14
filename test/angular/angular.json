@@ -58,6 +58,7 @@
               "projects/minimal/src/assets"
             ],
             "styles": [
+              "@angular/material/prebuilt-themes/indigo-pink.css",
               "projects/minimal/src/styles.css"
             ],
             "scripts": []
@@ -136,6 +137,7 @@
               "projects/i18n/src/assets"
             ],
             "styles": [
+              "@angular/material/prebuilt-themes/purple-green.css",
               "projects/i18n/src/styles.css"
             ],
             "scripts": []
@@ -211,6 +213,7 @@
               "projects/ngssc/src/assets"
             ],
             "styles": [
+              "@angular/material/prebuilt-themes/deeppurple-amber.css",
               "projects/ngssc/src/styles.css"
             ],
             "scripts": []

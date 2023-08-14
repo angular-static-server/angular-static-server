@@ -19,5 +19,5 @@ import 'angular-server-side-configuration/process';
 
 export const environment = {
   label: process.env['LABEL'],
-  cspNonce: process.env['NGSSC_CSP_NONCE'],
+  cspNonce: process.env['NGSS_CSP_NONCE'],
 };

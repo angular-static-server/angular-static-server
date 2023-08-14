@@ -15,6 +15,7 @@ containerid=$(docker run --detach --publish 8080:8080 ngstaticserver-test)
 k6 run -e TYPE=ngss benchmark.js
 
 bombardier -p r http://localhost:8080/de-CH/ > bombardier-ngss-index.txt
+bombardier -p r http://localhost:8080/de-CH/3rdpartylicenses.txt > bombardier-ngss-license.txt
 
 docker stop $containerid
 
@@ -26,6 +27,7 @@ containerid=$(docker run --detach --publish 8080:8080 ngstaticserver-nginx)
 k6 run -e TYPE=nginx benchmark.js
 
 bombardier -p r http://localhost:8080/de-CH/ > bombardier-nginx-index.txt
+bombardier -p r http://localhost:8080/de-CH/3rdpartylicenses.txt > bombardier-nginx-license.txt
 
 docker stop $containerid
 

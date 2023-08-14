@@ -10,7 +10,7 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/main.go",
-      "args": ["serve"],
+      "args": ["serve", "--csp-font-src", "https://fonts.gstatic.com/"],
       "cwd": "${workspaceFolder}/test/angular/dist/minimal"
     },
     {
@@ -19,7 +19,7 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/main.go",
-      "args": ["serve"],
+      "args": ["serve", "--csp-font-src", "https://fonts.gstatic.com/"],
       "cwd": "${workspaceFolder}/test/angular/dist/i18n"
     },
     {

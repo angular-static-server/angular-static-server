@@ -39,5 +39,6 @@ RUN ["ng-server", "compress"]
 FROM server AS server-test-i18n
 
 #ENV _LOG_LEVEL=DEBUG
+ENV _CSP_FONT_SRC=https://fonts.gstatic.com/
 COPY --chmod=644 test/angular/dist/i18n .
 RUN ["ng-server", "compress"]

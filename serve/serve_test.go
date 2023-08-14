@@ -176,7 +176,7 @@ func TestMultipleIndex(t *testing.T) {
 		context.ImportTestApp("i18n")
 		expectedIndexContent = context.ReadFile("de-CH/index.html")
 	})
-	parts := regexp.MustCompile("(</title>|\\${NGSSC_CSP_NONCE})").Split(expectedIndexContent, 3)
+	parts := regexp.MustCompile("(</title>|\\${NGSS_CSP_NONCE})").Split(expectedIndexContent, -1)
 
 	req := httptest.NewRequest("GET", "/de-CH/example/path/to/request", nil)
 	w := httptest.NewRecorder()
@@ -184,12 +184,19 @@ func TestMultipleIndex(t *testing.T) {
 
 	resp := w.Result()
 	body, _ := io.ReadAll(resp.Body)
+	bodyText := string(body)
 
 	test.AssertEqual(t, resp.StatusCode, 200, "")
 	test.AssertEqual(t, resp.Header.Get("Content-Type"), "text/html; charset=utf-8", "")
-	test.AssertTrue(t, strings.HasPrefix(string(body), parts[0]), "")
-	test.AssertTrue(t, strings.Contains(string(body), parts[1]), "")
-	test.AssertTrue(t, strings.HasSuffix(string(body), parts[2]), "")
+	for k, v := range parts {
+		if k == 0 {
+			test.AssertTrue(t, strings.HasPrefix(bodyText, v), "")
+		} else if k < len(parts)-1 {
+			test.AssertTrue(t, strings.Contains(bodyText, v), "")
+		} else {
+			test.AssertTrue(t, strings.HasSuffix(bodyText, v), "")
+		}
+	}
 }
 
 func TestNoNgsscJson(t *testing.T) {
@@ -279,7 +286,8 @@ func createTestAppWithInit(t *testing.T, init func(context test.TestDir, params 
 		CacheSize:            constants.DefaultCacheSize,
 		CompressionThreshold: constants.DefaultCompressionThreshold,
 		LogLevel:             "ERROR",
-		CspTemplate:          "default-src 'self'; style-src 'self' ${NGSSC_CSP_NONCE}; script-src 'self' ${NGSSC_CSP_HASH} ${NGSSC_CSP_NONCE};",
+		CspTemplate:          "default-src 'self'; style-src 'self' ${NGSS_CSP_NONCE}; script-src 'self' ${NGSSC_CSP_HASH} ${NGSS_CSP_NONCE};",
+		XFrameOptions:        "DENY",
 	}
 	init(context, params)
 	app := createApp(params)

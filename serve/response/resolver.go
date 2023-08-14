@@ -114,35 +114,24 @@ func (resolver EntityResolver) Resolve(filePath string) ResponseEntity {
 		resolver.cache.Add(resolvedPath, entity)
 	} else if indexPath := resolver.indexResolver(filePath); indexPath != nil {
 		fileSize, modTime, contentType := fileMeta(*indexPath)
+		entity = ResponseEntity{
+			Path:          *indexPath,
+			fileType:      INDEX,
+			Size:          fileSize,
+			ModTime:       modTime,
+			ContentType:   contentType,
+			Compressed:    true,
+			Content:       readFile(*indexPath),
+			ContentBrotli: readFileDebugLogOnError(*indexPath + ".br"),
+			ContentGzip:   readFileDebugLogOnError(*indexPath + ".gz"),
+		}
 		if isSameIndexPath(*indexPath, resolvedPath) {
-			entity = ResponseEntity{
-				Path:          *indexPath,
-				fileType:      INDEX,
-				Size:          fileSize,
-				ModTime:       modTime,
-				ContentType:   contentType,
-				Compressed:    true,
-				Content:       readFile(*indexPath),
-				ContentBrotli: readFileDebugLogOnError(*indexPath + ".br"),
-				ContentGzip:   readFileDebugLogOnError(*indexPath + ".gz"),
-			}
 			resolver.cache.Add(resolvedPath, entity)
 		} else {
 			resolver.cache.Add(resolvedPath, ResponseEntity{
 				Path:     *indexPath,
 				fileType: INDEX_PROXY,
 			})
-			entity = ResponseEntity{
-				Path:          *indexPath,
-				fileType:      INDEX,
-				Size:          fileSize,
-				ModTime:       modTime,
-				ContentType:   contentType,
-				Compressed:    true,
-				Content:       readFile(*indexPath),
-				ContentBrotli: readFileDebugLogOnError(*indexPath + ".br"),
-				ContentGzip:   readFileDebugLogOnError(*indexPath + ".gz"),
-			}
 			resolver.cache.Add(filepath.Dir(*indexPath), entity)
 		}
 	} else {

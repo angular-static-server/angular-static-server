@@ -1,4 +1,4 @@
-package acceptencoding
+package headers
 
 import (
 	"net/http"
