@@ -29,7 +29,8 @@ CMD ["ng-server", "serve"]
 ###################
 FROM server AS server-test
 
-ENV _LOG_LEVEL=DEBUG
+#ENV _LOG_LEVEL=DEBUG
+ENV _CSP_FONT_SRC=https://fonts.gstatic.com/
 COPY --chmod=644 test/angular/dist/ngssc .
 RUN ["ng-server", "compress"]
 
