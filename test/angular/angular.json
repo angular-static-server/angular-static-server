@@ -213,7 +213,7 @@
               "projects/ngssc/src/assets"
             ],
             "styles": [
-              "@angular/material/prebuilt-themes/deeppurple-amber.css",
+              "node_modules/@sbb-esta/angular/typography.css",
               "projects/ngssc/src/styles.css"
             ],
             "scripts": []

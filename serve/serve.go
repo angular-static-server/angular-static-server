@@ -70,11 +70,33 @@ var Flags = []cli.Flag{
 	&cli.StringFlag{
 		EnvVars: []string{"_CSP_TEMPLATE"},
 		Name:    "csp-template",
-		Value:   "default-src 'self'; style-src 'self' ${NGSS_CSP_NONCE} ${_CSP_STYLE_SRC}; script-src 'self' ${NGSS_CSP_NONCE} ${_CSP_SCRIPT_SRC}; font-src 'self' ${_CSP_FONT_SRC};",
+		Value: strings.Join([]string{
+			"default-src 'self' ${_CSP_STYLE_SRC};",
+			"connect-src 'self' ${_CSP_CONNECT_SRC};",
+			"font-src 'self' ${_CSP_FONT_SRC};",
+			"img-src 'self' ${_CSP_IMG_SRC};",
+			"script-src 'self' ${NGSS_CSP_NONCE} ${_CSP_SCRIPT_SRC};",
+			"style-src 'self' ${NGSS_CSP_NONCE} ${_CSP_STYLE_SRC};",
+		}, " "),
 	},
 	&cli.StringFlag{
-		EnvVars: []string{"_CSP_STYLE_SRC"},
-		Name:    "csp-style-src",
+		EnvVars: []string{"_CSP_DEFAULT_SRC"},
+		Name:    "csp-default-src",
+		Value:   "",
+	},
+	&cli.StringFlag{
+		EnvVars: []string{"_CSP_CONNECT_SRC"},
+		Name:    "csp-connect-src",
+		Value:   "",
+	},
+	&cli.StringFlag{
+		EnvVars: []string{"_CSP_FONT_SRC"},
+		Name:    "csp-font-src",
+		Value:   "",
+	},
+	&cli.StringFlag{
+		EnvVars: []string{"_CSP_IMG_SRC"},
+		Name:    "csp-img-src",
 		Value:   "",
 	},
 	&cli.StringFlag{
@@ -83,8 +105,8 @@ var Flags = []cli.Flag{
 		Value:   "",
 	},
 	&cli.StringFlag{
-		EnvVars: []string{"_CSP_FONT_SRC"},
-		Name:    "csp-font-src",
+		EnvVars: []string{"_CSP_STYLE_SRC"},
+		Name:    "csp-style-src",
 		Value:   "",
 	},
 	&cli.StringFlag{
@@ -105,9 +127,12 @@ type ServerParams struct {
 	LogLevel             string
 	LogFormat            string
 	CspTemplate          string
+	CspDefaultSrc        string
+	CspConnectSrc        string
+	CspFontSrc           string
+	CspImgSrc            string
 	CspScriptSrc         string
 	CspStyleSrc          string
-	CspFontSrc           string
 	XFrameOptions        string
 }
 
@@ -178,9 +203,12 @@ func parseServerParams(c *cli.Context) (*ServerParams, error) {
 		LogLevel:             c.String("log-level"),
 		LogFormat:            c.String("log-format"),
 		CspTemplate:          c.String("csp-template"),
+		CspDefaultSrc:        c.String("csp-default-src"),
+		CspConnectSrc:        c.String("csp-connect-src"),
+		CspFontSrc:           c.String("csp-font-src"),
+		CspImgSrc:            c.String("csp-img-src"),
 		CspScriptSrc:         c.String("csp-script-src"),
 		CspStyleSrc:          c.String("csp-style-src"),
-		CspFontSrc:           c.String("csp-font-src"),
 		XFrameOptions:        c.String("x-frame-options"),
 	}, nil
 }
@@ -313,9 +341,12 @@ func (app *App) renderIndex(
 		app.appVariables.Update(CspNonceName, cspNonce)
 		cspValue := app.params.CspTemplate
 		cspValue = strings.ReplaceAll(cspValue, CspNoncePlaceholder, fmt.Sprintf("'nonce-%v'", cspNonce))
-		cspValue = strings.ReplaceAll(cspValue, "${_CSP_STYLE_SRC}", app.params.CspStyleSrc)
-		cspValue = strings.ReplaceAll(cspValue, "${_CSP_SCRIPT_SRC}", app.params.CspScriptSrc)
+		cspValue = strings.ReplaceAll(cspValue, "${_CSP_DEFAULT_SRC}", app.params.CspDefaultSrc)
+		cspValue = strings.ReplaceAll(cspValue, "${_CSP_CONNECT_SRC}", app.params.CspConnectSrc)
 		cspValue = strings.ReplaceAll(cspValue, "${_CSP_FONT_SRC}", app.params.CspFontSrc)
+		cspValue = strings.ReplaceAll(cspValue, "${_CSP_IMG_SRC}", app.params.CspImgSrc)
+		cspValue = strings.ReplaceAll(cspValue, "${_CSP_SCRIPT_SRC}", app.params.CspScriptSrc)
+		cspValue = strings.ReplaceAll(cspValue, "${_CSP_STYLE_SRC}", app.params.CspStyleSrc)
 		w.Header().Set("Content-Security-Policy", cspValue)
 	} else if app.appVariables.IsEmpty() {
 		if encoding.ContainsBrotli() && entity.ContentBrotli != nil {

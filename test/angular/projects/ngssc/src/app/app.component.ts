@@ -1,21 +1,19 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatIconModule } from '@angular/material/icon';
+import { SbbHeaderLeanModule } from '@sbb-esta/angular/header-lean';
+import { SbbIconModule } from '@sbb-esta/angular/icon';
 import { environment } from '../environments/environment';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, MatToolbarModule, MatIconModule],
+  imports: [CommonModule, RouterOutlet, SbbHeaderLeanModule, SbbIconModule],
   template: `
-    <mat-toolbar>
-      <span>i18n App</span>
-    </mat-toolbar>
+    <sbb-header-lean label="ngssc App"></sbb-header-lean>
     <div class="content">
       <h1>
-        Welcome to {{title}} <mat-icon aria-hidden="false" aria-label="Example home icon" fontIcon="home"></mat-icon>!
+        Welcome to {{title}} <sbb-icon svgIcon="cloud-small"></sbb-icon>!
       </h1>
       <div>{{ title }} app is running!</div>
     </div>

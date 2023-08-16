@@ -1,9 +1,10 @@
 import { ApplicationConfig, CSP_NONCE } from '@angular/core';
 import { provideRouter } from '@angular/router';
+import { provideAnimations } from '@angular/platform-browser/animations';
+import { provideHttpClient } from '@angular/common/http';
 
 import { routes } from './app.routes';
 import { environment } from '../environments/environment';
-import { provideAnimations } from '@angular/platform-browser/animations';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -12,6 +13,7 @@ export const appConfig: ApplicationConfig = {
         provide: CSP_NONCE,
         useValue: environment.cspNonce,
     },
+    provideHttpClient(),
     provideAnimations()
 ]
 };

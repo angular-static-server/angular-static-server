@@ -23,6 +23,15 @@
       "cwd": "${workspaceFolder}/test/angular/dist/i18n"
     },
     {
+      "name": "Server: ngssc",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/main.go",
+      "args": ["serve", "--csp-connect-src", "https://icons.app.sbb.ch/", "--csp-font-src", "https://cdn.app.sbb.ch/"],
+      "cwd": "${workspaceFolder}/test/angular/dist/ngssc"
+    },
+    {
       "name": "Compress test app",
       "type": "go",
       "request": "launch",
