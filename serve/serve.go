@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
+	"math/big"
 	mathrand "math/rand"
 	"net/http"
 	"ngstaticserver/compress"
@@ -390,22 +391,21 @@ const chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 var runeCharts = []rune(chars)
 
 func generateNonce() string {
-	bytes := make([]byte, 16)
+	result := make([]byte, 16)
+	for i := 0; i < 16; i++ {
+		value, err := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
+		if err != nil {
+			slog.Warn("Failed to use secure random to generate CSP nonce. Falling back to less secure variant.")
+			localRand := mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
+			pick := make([]rune, 16)
+			for i := range pick {
+				pick[i] = runeCharts[localRand.Intn(len(chars))]
+			}
 
-	if _, err := rand.Read(bytes); err != nil {
-		slog.Warn("Failed to use secure random to generate CSP nonce. Falling back to less secure variant.")
-		localRand := mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
-		pick := make([]rune, 16)
-		for i := range pick {
-			pick[i] = runeCharts[localRand.Intn(len(chars))]
+			return string(pick)
 		}
-
-		return string(pick)
+		result[i] = chars[value.Int64()]
 	}
 
-	for i, b := range bytes {
-		bytes[i] = chars[b%byte(len(chars))]
-	}
-
-	return string(bytes)
+	return string(result)
 }
