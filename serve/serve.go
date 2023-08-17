@@ -390,12 +390,12 @@ const chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 var runeCharts = []rune(chars)
 
 func generateNonce() string {
-	bytes := make([]byte, 10)
+	bytes := make([]byte, 16)
 
 	if _, err := rand.Read(bytes); err != nil {
-		slog.Warn("Failed to use secure random to generate CSP nonce. Falling back to insecure variant.")
+		slog.Warn("Failed to use secure random to generate CSP nonce. Falling back to less secure variant.")
 		localRand := mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
-		pick := make([]rune, 10)
+		pick := make([]rune, 16)
 		for i := range pick {
 			pick[i] = runeCharts[localRand.Intn(len(chars))]
 		}
