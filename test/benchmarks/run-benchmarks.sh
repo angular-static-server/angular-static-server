@@ -1,10 +1,16 @@
 #!/bin/sh
 
-# This script expects the containers to have been built with the run-*-container.sh scripts.
+# This script expects the nginx container to have been built with the run-nginx-container.sh scripts.
 # It also expects k6 (https://k6.io/docs/get-started/installation/) and
 # bombadier (https://pkg.go.dev/github.com/codesenberg/bombardier) to be installed.
 
 SCRIPT_DIR=$(dirname $(realpath -s $0))
+
+cd $SCRIPT_DIR && cd ../..
+
+export DOCKERKIT=1
+
+docker build --build-arg="RELEASE_VERSION=0.0.0-dev" --tag ngstaticserver-test . 
 
 cd $SCRIPT_DIR
 
