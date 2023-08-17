@@ -1,0 +1,8 @@
+.github
+.vscode
+.nvmrc
+LICENSE
+*.md
+*.out
+test/angular
+!test/angular/dist
