@@ -24,7 +24,7 @@ Feel free to create a feature request, if a feature you need is missing.
 FROM ghcr.io/angular-static-server/server:16
 
 # Copy your built application into the container.
-COPY --chmod=644 dist/your-app .
+COPY --chown=app:app dist/your-app .
 # Optionally compress your files to gzip and brotli variants for improved performance.
 RUN ["ng-server", "compress"]
 ```
@@ -37,6 +37,15 @@ does not include a shell. If you need a shell or other tools, you could copy the
 (which is located at `/usr/local/bin/ng-server`) into your own image in a multi-stage build.
 
 See the [Dockerfile](./Dockerfile) for reference.
+
+The image follows the guidelines defined by https://github.com/mozilla-services/Dockerflow
+This means the following endpoints are implemented:
+
+| Endpoint           | Functionality                                                                     |
+| ------------------ | --------------------------------------------------------------------------------- |
+| `/__version__`     | Returns the content of ./version.json, if available.                              |
+| `/__heartbeat__`   | Returns a HTTP status 200 if healthy, 5xx if not (currently no use case for 5xx). |
+| `/__lbheartbeat__` | Always returns a HTTP status 200.                                                 |
 
 ## App Configuration
 
@@ -58,13 +67,13 @@ For security the [Content-Security-Policy](https://developer.mozilla.org/en-US/d
 and [X-Frame-Options](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options)
 headers are used (See command documentation below for details).
 
-The CSP header is only applied, if either the `ngCspNonce="..."` attribute or the reserved
-environment variable `NGSS_CSP_NONCE` is used.
+The CSP header is only applied, if either the `ngCspNonce="..."` (recommended) attribute or the
+reserved environment variable `NGSS_CSP_NONCE` is used.
 
 If you only want to minimally extend the allowed CSP sources, there are a list of variables
 that can be used to extend a specific source: `_CSP_*_SRC`.
 
-### ngCspNonce
+### ngCspNonce (recommended)
 
 `index.html`
 
@@ -80,6 +89,9 @@ that can be used to extend a specific source: `_CSP_*_SRC`.
 
 In order for this to work, you either need to use `angular-server-side-configuration`
 or define `NGSS_CSP_NONCE` in `.env` with a placeholder value.
+
+**Note**: At the time of writing, the Angular CLI does not mark `<style>` or `<script>` with the
+defined nonce, which breaks CSP/the app. Due to this, the `ngCspNonce` is recommended.
 
 `app.config.ts`
 
@@ -124,13 +136,13 @@ Usage in `Dockerfile`: `CMD ["ng-server", "compress"]`
 | Environment Variable    | Command                   | Description                                                                                                                                                 | Default                                                                                                                                                                                    |
 | ----------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | \_PORT                  | `--port` or `-p`          | The port to listen to.                                                                                                                                      | `8080`                                                                                                                                                                                     |
-| \_CACHE_CONTROL_MAX_AGE | `cache-control-max-age`   | The `Cache-Control` `max-age` value for fingerprinted files.                                                                                                | `31536000` (a year)                                                                                                                                                                        |
-| \_CACHE_SIZE            | `cache-size`              | Specifies the maximum size of LRU cache in bytes. Minimum size is `1024`.                                                                                   | `51200`                                                                                                                                                                                    |
+| \_CACHE_CONTROL_MAX_AGE | `--cache-control-max-age` | The `Cache-Control` `max-age` value for fingerprinted files.                                                                                                | `31536000` (a year)                                                                                                                                                                        |
+| \_CACHE_SIZE            | `--cache-size`            | Specifies the maximum size of LRU cache in bytes. Minimum size is `1024`.                                                                                   | `51200`                                                                                                                                                                                    |
 | \_COMPRESSION_THRESHOLD | `--compression-threshold` | The threshold for dynamic compression. This is used to check whether to use compressed versions of files or whether to compress index responses.            | `1024`                                                                                                                                                                                     |
 | \_LOG_LEVEL             | `--log-level` or `-l`     | The log level. Supports `DEBUG`, `INFO`, `WARN` and `ERROR`.                                                                                                | `INFO`                                                                                                                                                                                     |
 | \_LOG_FORMAT            | `--log-format`            | Supports `text` or `json`.                                                                                                                                  | `text`                                                                                                                                                                                     |
 | \_I18N_DEFAULT          | `--i18n-default`          | Which i18n variant should be used, if user `Accept-Language` value matches no available variants. Defaults to alphabetically first variant, if not defined. | ``                                                                                                                                                                                         |
-| \_DOTENV_PATH           | `dotenv-path`             | Path to the optional `.env` file to be used for app configuration.                                                                                          | `/config/.env`                                                                                                                                                                             |
+| \_DOTENV_PATH           | `--dotenv-path`           | Path to the optional `.env` file to be used for app configuration.                                                                                          | `/config/.env`                                                                                                                                                                             |
 | \_CSP_TEMPLATE          | `--csp-template`          | The `Content-Security-Policy` template HTTP header to be used.                                                                                              | `default-src 'self'; style-src 'self' ${NGSS_CSP_NONCE} ${CSP_STYLE_PLACEHOLDER}; script-src 'self' ${NGSS_CSP_NONCE} ${CSP_SCRIPT_PLACEHOLDER}; font-src 'self' ${CSP_FONT_PLACEHOLDER};` |
 | \_CSP_DEFAULT_SRC       | `--csp-default-src`       | Value to be inserted into the \_CSP_TEMPLATE in the `default-src` section.                                                                                  | ``                                                                                                                                                                                         |
 | \_CSP_CONNECT_SRC       | `--csp-connect-src`       | Value to be inserted into the \_CSP_TEMPLATE in the `connect-src` section.                                                                                  | ``                                                                                                                                                                                         |

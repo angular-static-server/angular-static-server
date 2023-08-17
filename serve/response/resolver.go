@@ -14,7 +14,7 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-type IndexResolver func(filePath string) *string
+type IndexResolver func(filePath string) (indexPath *string, isInRequestedDir bool)
 
 type EntityResolver struct {
 	root          string
@@ -55,16 +55,16 @@ func findIndexPaths(root string) []string {
 func createIndexResolver(root string, indexPaths []string) IndexResolver {
 	if len(indexPaths) == 1 && indexPaths[0] == "." {
 		indexHtmlPath := filepath.Join(root, "index.html")
-		return func(filePath string) *string {
-			return &indexHtmlPath
+		return func(filePath string) (*string, bool) {
+			return &indexHtmlPath, isSameIndexPath(indexHtmlPath, filePath)
 		}
 	} else if len(indexPaths) >= 1 {
-		return func(filePath string) *string {
-			resolvedPath := path.Join(root, filePath)
+		return func(filePath string) (*string, bool) {
+			resolvedPath := filePath
 			for {
 				indexPath := path.Join(resolvedPath, "index.html")
 				if fileExists(indexPath) {
-					return &indexPath
+					return &indexPath, isSameIndexPath(indexPath, filePath)
 				} else if rel, _ := filepath.Rel(root, resolvedPath); rel == "." {
 					break
 				}
@@ -72,13 +72,18 @@ func createIndexResolver(root string, indexPaths []string) IndexResolver {
 				resolvedPath = path.Dir(resolvedPath)
 			}
 
-			return nil
+			return nil, false
 		}
 	} else {
-		return func(filePath string) *string {
-			return nil
+		return func(filePath string) (*string, bool) {
+			return nil, false
 		}
 	}
+}
+
+func isSameIndexPath(indexPath, requestPath string) bool {
+	rel, _ := filepath.Rel(filepath.Dir(indexPath), requestPath)
+	return rel == "."
 }
 
 func (resolver EntityResolver) Resolve(filePath string) ResponseEntity {
@@ -90,6 +95,23 @@ func (resolver EntityResolver) Resolve(filePath string) ResponseEntity {
 
 	if ok {
 		return entity
+	} else if filePath == "/__version__" {
+		versionFilePath := filepath.Join(resolver.root, "version.json")
+		_, modTime, contentType := fileMeta(versionFilePath)
+		content := readFile(resolvedPath)
+		if content == nil {
+			content = []byte("{\n  \"undefined\": \"app does not have a version.json file\"\n}")
+		}
+		entity = ResponseEntity{
+			Path:        versionFilePath,
+			fileType:    VERSION,
+			Size:        int64(len(content)),
+			ModTime:     modTime,
+			ContentType: contentType,
+			Compressed:  false,
+			Content:     content,
+		}
+		resolver.cache.Add(resolvedPath, entity)
 	} else if fileExists(resolvedPath) {
 		var category FileType
 		category = FILE
@@ -112,7 +134,18 @@ func (resolver EntityResolver) Resolve(filePath string) ResponseEntity {
 			ContentGzip:   contentGzip,
 		}
 		resolver.cache.Add(resolvedPath, entity)
-	} else if indexPath := resolver.indexResolver(filePath); indexPath != nil {
+	} else if indexPath, isInRequestedDir := resolver.indexResolver(resolvedPath); indexPath != nil {
+		if !isInRequestedDir {
+			entity, ok = resolver.cache.Get(filepath.Dir(*indexPath))
+			if ok {
+				resolver.cache.Add(resolvedPath, ResponseEntity{
+					Path:     *indexPath,
+					fileType: INDEX_PROXY,
+				})
+				return entity
+			}
+		}
+
 		fileSize, modTime, contentType := fileMeta(*indexPath)
 		entity = ResponseEntity{
 			Path:          *indexPath,
@@ -125,7 +158,7 @@ func (resolver EntityResolver) Resolve(filePath string) ResponseEntity {
 			ContentBrotli: readFileDebugLogOnError(*indexPath + ".br"),
 			ContentGzip:   readFileDebugLogOnError(*indexPath + ".gz"),
 		}
-		if isSameIndexPath(*indexPath, resolvedPath) {
+		if isInRequestedDir {
 			resolver.cache.Add(resolvedPath, entity)
 		} else {
 			resolver.cache.Add(resolvedPath, ResponseEntity{
@@ -177,11 +210,6 @@ func fileMeta(filePath string) (size int64, modTime time.Time, contentType strin
 		return 0, time.Time{}, mime.TypeByExtension(filepath.Ext(filePath))
 	}
 	return info.Size(), info.ModTime(), mime.TypeByExtension(filepath.Ext(filePath))
-}
-
-func isSameIndexPath(indexPath, requestPath string) bool {
-	rel, _ := filepath.Rel(filepath.Dir(indexPath), requestPath)
-	return rel == "."
 }
 
 func readFile(filePath string) []byte {

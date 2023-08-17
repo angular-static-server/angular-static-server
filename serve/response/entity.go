@@ -12,6 +12,7 @@ const (
 	FINGERPRINTED_FILE
 	INDEX
 	INDEX_PROXY
+	VERSION
 )
 
 type ResponseEntity struct {

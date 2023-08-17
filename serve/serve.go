@@ -173,6 +173,11 @@ func Action(c *cli.Context) error {
 	app := createApp(params)
 	defer app.Close()
 
+	heartbeat := func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("UP"))
+	}
+	http.HandleFunc("/__heartbeat__", heartbeat)
+	http.HandleFunc("/__lbheartbeat__", heartbeat)
 	http.HandleFunc("/", app.handleRequest)
 	return http.ListenAndServe(fmt.Sprintf(":%v", params.Port), nil)
 }

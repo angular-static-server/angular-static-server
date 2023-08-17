@@ -12,7 +12,7 @@ import (
 )
 
 // CliVersion will be injected during build
-var CliVersion string
+var CliVersion string = "dev"
 
 func main() {
 	err := run(os.Args)
