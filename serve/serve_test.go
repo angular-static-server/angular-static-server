@@ -99,7 +99,7 @@ func TestIndexRequestBrotli(t *testing.T) {
 				}
 			})
 			content := context.ReadFile(IndexHtml)
-			parts := strings.Split(content, "<!--CONFIG-->")
+			parts := regexp.MustCompile("(<!--CONFIG-->|\\${NGSS_CSP_NONCE})").Split(content, -1)
 
 			req := httptest.NewRequest("GET", "/", nil)
 			req.Header.Add("Accept-Encoding", e)
@@ -113,8 +113,15 @@ func TestIndexRequestBrotli(t *testing.T) {
 			test.AssertEqual(t, resp.Header.Get("Content-Type"), "text/html; charset=utf-8", "")
 			test.AssertEqual(t, resp.Header.Get("Content-Encoding"), "br", "")
 			responseContent := string(test.DecompressBrotli(body))
-			test.AssertTrue(t, strings.HasPrefix(responseContent, parts[0]), "")
-			test.AssertTrue(t, strings.HasSuffix(responseContent, parts[1]), "")
+			for k, v := range parts {
+				if k == 0 {
+					test.AssertTrue(t, strings.HasPrefix(responseContent, v), "")
+				} else if k < len(parts)-1 {
+					test.AssertTrue(t, strings.Contains(responseContent, v), "")
+				} else {
+					test.AssertTrue(t, strings.HasSuffix(responseContent, v), "")
+				}
+			}
 		}
 	}
 }
@@ -151,7 +158,7 @@ func TestIndexRequestGzip(t *testing.T) {
 			}
 		})
 		content := context.ReadFile(IndexHtml)
-		parts := strings.Split(content, "<!--CONFIG-->")
+		parts := regexp.MustCompile("(<!--CONFIG-->|\\${NGSS_CSP_NONCE})").Split(content, -1)
 
 		req := httptest.NewRequest("GET", "/", nil)
 		req.Header.Add("Accept-Encoding", "gzip")
@@ -165,8 +172,15 @@ func TestIndexRequestGzip(t *testing.T) {
 		test.AssertEqual(t, resp.Header.Get("Content-Type"), "text/html; charset=utf-8", "")
 		test.AssertEqual(t, resp.Header.Get("Content-Encoding"), "gzip", "")
 		responseContent := string(test.DecompressGzip(body))
-		test.AssertTrue(t, strings.HasPrefix(responseContent, parts[0]), "")
-		test.AssertTrue(t, strings.HasSuffix(responseContent, parts[1]), "")
+		for k, v := range parts {
+			if k == 0 {
+				test.AssertTrue(t, strings.HasPrefix(responseContent, v), "")
+			} else if k < len(parts)-1 {
+				test.AssertTrue(t, strings.Contains(responseContent, v), "")
+			} else {
+				test.AssertTrue(t, strings.HasSuffix(responseContent, v), "")
+			}
+		}
 	}
 }
 
