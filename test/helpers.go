@@ -34,8 +34,8 @@ func (context TestDir) ImportTestApp(app string) {
 	_, b, _, _ := runtime.Caller(0)
 	testAppDir := filepath.Join(filepath.Dir(b), "angular/dist", app)
 	if _, err := os.Stat(testAppDir); os.IsNotExist(err) {
-		// Runs yarn build in the angular directory
-		cmd := exec.Command("yarn", "build")
+		// Runs npm run build in the angular directory
+		cmd := exec.Command("npm", "run", "build")
 		cmd.Dir = filepath.Join(filepath.Dir(b), "angular")
 		output, err := cmd.CombinedOutput()
 		if err != nil {

@@ -28,7 +28,7 @@ jobs:
           cache-dependency-path: 'test/angular/package-lock.json'
       - name: Install Angular Test App
         if: steps.angular-app-cache.outputs.cache-hit != 'true'
-        run: yarn install --frozen-lockfile --non-interactive
+        run: npm ci
         working-directory: ./test/angular
       - name: Lint
         run: gofmt -l .
