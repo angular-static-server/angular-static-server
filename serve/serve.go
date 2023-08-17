@@ -174,13 +174,9 @@ func Action(c *cli.Context) error {
 	app := createApp(params)
 	defer app.Close()
 
-	heartbeat := func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("UP"))
-	}
-	http.HandleFunc("/__heartbeat__", heartbeat)
-	http.HandleFunc("/__lbheartbeat__", heartbeat)
-	http.HandleFunc("/", app.handleRequest)
-	return http.ListenAndServe(fmt.Sprintf(":%v", params.Port), nil)
+	mux := http.NewServeMux()
+	mux.Handle("/", app)
+	return http.ListenAndServe(fmt.Sprintf(":%v", params.Port), mux)
 }
 
 func parseServerParams(c *cli.Context) (*ServerParams, error) {
@@ -242,12 +238,15 @@ func (lrw *loggingResponseWriter) WriteHeader(code int) {
 	lrw.ResponseWriter.WriteHeader(code)
 }
 
-func (app *App) handleRequest(rw http.ResponseWriter, r *http.Request) {
+func (app App) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	w := &loggingResponseWriter{rw, http.StatusOK}
 	requestIdentity := fmt.Sprintf("%v %v %v", r.Method, r.URL.Path, r.Proto)
 	slog.Debug(requestIdentity, "state", "request start")
 	if r.Method != "GET" && r.Method != "HEAD" {
 		errorResponse(w, requestIdentity, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	} else if r.URL.Path == "/__heartbeat__" || r.URL.Path == "/__lbheartbeat__" {
+		rw.Write([]byte("UP"))
 		return
 	}
 

@@ -44,7 +44,7 @@ func TestAction(t *testing.T) {
 
 func TestStartingServer(t *testing.T) {
 	app, _ := createTestApp(t)
-	ts := httptest.NewServer(http.HandlerFunc(app.handleRequest))
+	ts := httptest.NewServer(app)
 	defer ts.Close()
 }
 
@@ -54,7 +54,7 @@ func TestFileRequest(t *testing.T) {
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/%v", Licenses), nil)
 	w := httptest.NewRecorder()
-	app.handleRequest(w, req)
+	app.ServeHTTP(w, req)
 
 	resp := w.Result()
 	body, _ := io.ReadAll(resp.Body)
@@ -74,7 +74,7 @@ func TestFileRequestBrotli(t *testing.T) {
 		req := httptest.NewRequest("GET", fmt.Sprintf("/%v", polyfill), nil)
 		req.Header.Add("Accept-Encoding", e)
 		w := httptest.NewRecorder()
-		app.handleRequest(w, req)
+		app.ServeHTTP(w, req)
 
 		resp := w.Result()
 		body, _ := io.ReadAll(resp.Body)
@@ -104,7 +104,7 @@ func TestIndexRequestBrotli(t *testing.T) {
 			req := httptest.NewRequest("GET", "/", nil)
 			req.Header.Add("Accept-Encoding", e)
 			w := httptest.NewRecorder()
-			app.handleRequest(w, req)
+			app.ServeHTTP(w, req)
 
 			resp := w.Result()
 			body, _ := io.ReadAll(resp.Body)
@@ -135,7 +135,7 @@ func TestFileRequestGzip(t *testing.T) {
 	req := httptest.NewRequest("GET", fmt.Sprintf("/%v", polyfill), nil)
 	req.Header.Add("Accept-Encoding", "gzip")
 	w := httptest.NewRecorder()
-	app.handleRequest(w, req)
+	app.ServeHTTP(w, req)
 
 	resp := w.Result()
 	body, _ := io.ReadAll(resp.Body)
@@ -163,7 +163,7 @@ func TestIndexRequestGzip(t *testing.T) {
 		req := httptest.NewRequest("GET", "/", nil)
 		req.Header.Add("Accept-Encoding", "gzip")
 		w := httptest.NewRecorder()
-		app.handleRequest(w, req)
+		app.ServeHTTP(w, req)
 
 		resp := w.Result()
 		body, _ := io.ReadAll(resp.Body)
@@ -194,7 +194,7 @@ func TestMultipleIndex(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/de-CH/example/path/to/request", nil)
 	w := httptest.NewRecorder()
-	app.handleRequest(w, req)
+	app.ServeHTTP(w, req)
 
 	resp := w.Result()
 	body, _ := io.ReadAll(resp.Body)
@@ -220,7 +220,7 @@ func TestNoNgsscJson(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
-	app.handleRequest(w, req)
+	app.ServeHTTP(w, req)
 
 	resp := w.Result()
 	body, _ := io.ReadAll(resp.Body)
@@ -235,7 +235,7 @@ func TestNotFound(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/example.txt", nil)
 	w := httptest.NewRecorder()
-	app.handleRequest(w, req)
+	app.ServeHTTP(w, req)
 
 	resp := w.Result()
 
@@ -247,7 +247,7 @@ func TestNonGetRequest(t *testing.T) {
 
 	req := httptest.NewRequest("PUT", "/example.txt", nil)
 	w := httptest.NewRecorder()
-	app.handleRequest(w, req)
+	app.ServeHTTP(w, req)
 
 	resp := w.Result()
 
@@ -259,7 +259,7 @@ func TestHeadRequest(t *testing.T) {
 
 	req := httptest.NewRequest("HEAD", "/example.txt", nil)
 	w := httptest.NewRecorder()
-	app.handleRequest(w, req)
+	app.ServeHTTP(w, req)
 
 	resp := w.Result()
 	body, _ := io.ReadAll(resp.Body)
@@ -276,7 +276,7 @@ func TestLanguageRedirect(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
-	app.handleRequest(w, req)
+	app.ServeHTTP(w, req)
 
 	resp := w.Result()
 
