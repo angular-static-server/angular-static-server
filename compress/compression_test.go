@@ -14,7 +14,7 @@ func TestCompressionBrotli(t *testing.T) {
 	CompressWithBrotliToFile([]byte(expected), filePath)
 
 	content := test.DecompressBrotliFile(filePath)
-	test.AssertEqual(t, string(content), expected, "")
+	test.AssertEqual(t, string(content), expected)
 }
 
 func TestCompressionBrotliFast(t *testing.T) {
@@ -22,7 +22,7 @@ func TestCompressionBrotliFast(t *testing.T) {
 	content := CompressWithBrotliFast([]byte(expected))
 
 	content = test.DecompressBrotli(content)
-	test.AssertEqual(t, string(content), expected, "")
+	test.AssertEqual(t, string(content), expected)
 }
 
 func TestCompressionGzip(t *testing.T) {
@@ -32,7 +32,7 @@ func TestCompressionGzip(t *testing.T) {
 	CompressWithGzipToFile([]byte(expected), filePath)
 
 	content := test.DecompressGzipFile(filePath)
-	test.AssertEqual(t, string(content), expected, "")
+	test.AssertEqual(t, string(content), expected)
 }
 
 func TestCompressionGzipFast(t *testing.T) {
@@ -40,5 +40,5 @@ func TestCompressionGzipFast(t *testing.T) {
 	content := CompressWithGzipFast([]byte(expected))
 
 	content = test.DecompressGzip(content)
-	test.AssertEqual(t, string(content), expected, "")
+	test.AssertEqual(t, string(content), expected)
 }

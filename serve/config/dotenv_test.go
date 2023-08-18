@@ -8,29 +8,29 @@ import (
 
 func TestShouldParseDotEnv(t *testing.T) {
 	context := test.NewTestDir(t)
-	context.CreateFile(".env", "ENV =production\nPORT =8080 \nDELAY = 200")
+	context.WriteFile(".env", "ENV =production\nPORT =8080 \nDELAY = 200")
 
 	var result map[string]*string
 	CreateDotEnv(filepath.Join(context.Path, ".env"), func(variables map[string]*string) {
 		result = variables
 	})
 
-	test.AssertEqual(t, len(result), 3, "")
-	test.AssertEqual(t, readValue(t, result, "ENV"), "production", "")
-	test.AssertEqual(t, readValue(t, result, "PORT"), "8080", "")
-	test.AssertEqual(t, readValue(t, result, "DELAY"), "200", "")
+	test.AssertEqual(t, len(result), 3)
+	test.AssertEqual(t, readValue(t, result, "ENV"), "production")
+	test.AssertEqual(t, readValue(t, result, "PORT"), "8080")
+	test.AssertEqual(t, readValue(t, result, "DELAY"), "200")
 }
 
 func TestShouldParseEmptyDotEnv(t *testing.T) {
 	context := test.NewTestDir(t)
-	context.CreateFile(".env", "")
+	context.WriteFile(".env", "")
 
 	var result map[string]*string
 	CreateDotEnv(filepath.Join(context.Path, ".env"), func(variables map[string]*string) {
 		result = variables
 	})
 
-	test.AssertEqual(t, len(result), 0, "")
+	test.AssertEqual(t, len(result), 0)
 }
 
 func TestShouldSkipMissingDotEnv(t *testing.T) {
@@ -41,19 +41,19 @@ func TestShouldSkipMissingDotEnv(t *testing.T) {
 		result = variables
 	})
 
-	test.AssertEqual(t, len(result), 0, "")
+	test.AssertEqual(t, len(result), 0)
 }
 
 func TestShouldSkipMalformedDotEnv(t *testing.T) {
 	context := test.NewTestDir(t)
-	context.CreateFile(".env", "{}")
+	context.WriteFile(".env", "{}")
 
 	var result map[string]*string
 	CreateDotEnv(filepath.Join(context.Path, ".env"), func(variables map[string]*string) {
 		result = variables
 	})
 
-	test.AssertEqual(t, len(result), 0, "")
+	test.AssertEqual(t, len(result), 0)
 }
 
 func readValue(t *testing.T, variables map[string]*string, key string) string {

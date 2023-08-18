@@ -19,7 +19,7 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/main.go",
-      "args": ["serve", "--csp-font-src", "https://fonts.gstatic.com/"],
+      "args": ["serve", "--csp-font-src", "https://fonts.gstatic.com/", "--log-level", "DEBUG"],
       "cwd": "${workspaceFolder}/test/angular/dist/i18n"
     },
     {

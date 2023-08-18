@@ -1,22 +1,17 @@
 package serve
 
 import (
-	"bytes"
-	"crypto/rand"
 	"fmt"
-	"math/big"
-	mathrand "math/rand"
 	"net/http"
-	"ngstaticserver/compress"
 	"ngstaticserver/constants"
 	"ngstaticserver/serve/config"
-	"ngstaticserver/serve/headers"
-	"ngstaticserver/serve/response"
+	"ngstaticserver/serve/endpoints"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
-	"time"
 
+	"github.com/dimfeld/httptreemux/v5"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/exp/slog"
 )
@@ -71,14 +66,7 @@ var Flags = []cli.Flag{
 	&cli.StringFlag{
 		EnvVars: []string{"_CSP_TEMPLATE"},
 		Name:    "csp-template",
-		Value: strings.Join([]string{
-			"default-src 'self' ${_CSP_STYLE_SRC};",
-			"connect-src 'self' ${_CSP_CONNECT_SRC};",
-			"font-src 'self' ${_CSP_FONT_SRC};",
-			"img-src 'self' ${_CSP_IMG_SRC};",
-			"script-src 'self' ${NGSS_CSP_NONCE} ${_CSP_SCRIPT_SRC};",
-			"style-src 'self' ${NGSS_CSP_NONCE} ${_CSP_STYLE_SRC};",
-		}, " "),
+		Value:   constants.CspTemplate,
 	},
 	&cli.StringFlag{
 		EnvVars: []string{"_CSP_DEFAULT_SRC"},
@@ -139,7 +127,6 @@ type ServerParams struct {
 
 type App struct {
 	params       *ServerParams
-	resolver     response.EntityResolver
 	appVariables *config.AppVariables
 	env          *config.DotEnv
 	fileWatcher  *config.FileWatcher
@@ -171,12 +158,13 @@ func Action(c *cli.Context) error {
 		slog.Warn(fmt.Sprintf("Failed to set log level %v. Resetting to INFO.\n", level))
 	}
 
+	slog.Debug("HTTP server setup start")
 	app := createApp(params)
 	defer app.Close()
 
-	mux := http.NewServeMux()
-	mux.Handle("/", app)
-	return http.ListenAndServe(fmt.Sprintf(":%v", params.Port), mux)
+	router := app.createRouter()
+	slog.Debug("HTTP server setup complete")
+	return http.ListenAndServe(fmt.Sprintf(":%v", params.Port), router)
 }
 
 func parseServerParams(c *cli.Context) (*ServerParams, error) {
@@ -220,12 +208,7 @@ func createApp(params *ServerParams) App {
 	appVariables := config.InitializeAppVariables(params.WorkingDirectory)
 	dotEnv := config.CreateDotEnv(params.DotEnvPath, appVariables.MergeVariables)
 	fileWatcher.Watch(dotEnv)
-	entityResolver := response.CreateEntityResolver(params.WorkingDirectory, params.CacheSize)
-	return App{params, entityResolver, appVariables, dotEnv, fileWatcher}
-}
-
-func (app *App) Close() {
-	app.fileWatcher.Close()
+	return App{params, appVariables, dotEnv, fileWatcher}
 }
 
 type loggingResponseWriter struct {
@@ -238,173 +221,85 @@ func (lrw *loggingResponseWriter) WriteHeader(code int) {
 	lrw.ResponseWriter.WriteHeader(code)
 }
 
-func (app App) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	w := &loggingResponseWriter{rw, http.StatusOK}
-	requestIdentity := fmt.Sprintf("%v %v %v", r.Method, r.URL.Path, r.Proto)
-	slog.Debug(requestIdentity, "state", "request start")
-	if r.Method != "GET" && r.Method != "HEAD" {
-		errorResponse(w, requestIdentity, http.StatusMethodNotAllowed, "Method Not Allowed")
-		return
-	} else if r.URL.Path == "/__heartbeat__" || r.URL.Path == "/__lbheartbeat__" {
-		rw.Write([]byte("UP"))
-		return
-	}
-
-	entity := app.resolver.Resolve(r.URL.Path)
-	if entity.IsNotFound() {
-		acceptLanguage := strings.Split(r.Header.Get("Accept-Language"), ",")
-		acceptLanguage = append(acceptLanguage, app.params.I18nDefault)
-		if match := app.resolver.MatchLanguage(acceptLanguage); match != "" {
-			w.Header().Set("Location", fmt.Sprintf("/%v", match))
-			w.WriteHeader(http.StatusTemporaryRedirect)
-			slog.Info(requestIdentity, "status", http.StatusTemporaryRedirect)
-			return
+func (app App) createRouter() *httptreemux.TreeMux {
+	router := httptreemux.New()
+	router.PanicHandler = httptreemux.SimplePanicHandler
+	router.Use(func(next httptreemux.HandlerFunc) httptreemux.HandlerFunc {
+		return func(rw http.ResponseWriter, r *http.Request, m map[string]string) {
+			w := &loggingResponseWriter{rw, http.StatusOK}
+			requestIdentity := fmt.Sprintf("%v %v %v", r.Method, r.URL.Path, r.Proto)
+			slog.Debug(requestIdentity, "state", "request start")
+			next(w, r, m)
+			slog.Info(requestIdentity, "status", w.statusCode)
+			slog.Debug(requestIdentity, "state", "request complete")
 		}
-		errorResponse(w, requestIdentity, http.StatusNotFound, "Not Found")
-		return
-	}
+	})
+	versionEndpoint := endpoints.VersionEndpoint(filepath.Join(app.params.WorkingDirectory, "version.json"))
+	heartbeatEndpoint := endpoints.HeartbeatEndpoint()
+	router.GET("/__version__", versionEndpoint.Handle)
+	router.GET("/__heartbeat__", heartbeatEndpoint.Handle)
+	router.GET("/__lbheartbeat__", heartbeatEndpoint.Handle)
 
-	if entity.IsIndex() {
-		// Due to CSP limitations (stale nonce), we cannot allow browsers to cache index responses
-		w.Header().Set("Cache-Control", "no-store")
-	} else if entity.IsFingerprinted() && app.params.CacheControlMaxAge > 0 {
-		w.Header().Set("Cache-Control", fmt.Sprintf("max-age=%d", app.params.CacheControlMaxAge))
-	} else {
-		// https://web.dev/http-cache/?hl=en#flowchart
-		w.Header().Set("Cache-Control", "no-cache")
-	}
-
-	if entity.ContentType != "" {
-		w.Header().Set("Content-Type", entity.ContentType)
-	}
-
-	var encoding headers.Encoding = headers.NO_COMPRESSION
-	if app.params.CompressionThreshold <= entity.Size && entity.Compressed {
-		slog.Debug(
-			requestIdentity,
-			"state",
-			fmt.Sprintf(
-				"compression possible (threshold %v <= size %v && compressible=%v)",
-				app.params.CompressionThreshold,
-				entity.Size,
-				entity.Compressed))
-		acceptedEncoding := headers.ResolveAcceptEncoding(r)
-		if acceptedEncoding.AllowsBrotli() {
-			slog.Debug(requestIdentity, "state", "compression with brotli")
-			w.Header().Set("Content-Encoding", "br")
-			encoding = headers.BROTLI
-		} else if acceptedEncoding.AllowsGzip() {
-			slog.Debug(requestIdentity, "state", "compression with gzip")
-			w.Header().Set("Content-Encoding", "gzip")
-			encoding = headers.GZIP
+	indexPaths := make([]string, 0)
+	err := filepath.Walk(app.params.WorkingDirectory, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
 		}
-	} else {
-		slog.Debug(
-			requestIdentity,
-			"state",
-			fmt.Sprintf(
-				"compression not applicable (threshold %v > size %v || compressible=%v)",
-				app.params.CompressionThreshold,
-				entity.Size,
-				entity.Compressed))
+		if strings.HasSuffix(path, "/index.html") {
+			indexPaths = append(indexPaths, path)
+		} else if info.IsDir() || strings.HasSuffix(path, ".br") || strings.HasSuffix(path, ".gz") {
+			return nil
+		}
+
+		requestPath, _ := filepath.Rel(app.params.WorkingDirectory, path)
+		handler, err := endpoints.ResolveFileEndpoint(path, app.params.CacheControlMaxAge)
+		if err != nil {
+			return err
+		}
+
+		router.GET(fmt.Sprintf("/%v", requestPath), handler.Handle)
+		return nil
+	})
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed to walk files in %v", app.params.WorkingDirectory), "error", err)
 	}
 
-	var content []byte
-	if entity.IsIndex() {
-		content = app.renderIndex(w, entity, encoding)
-	} else if encoding.ContainsBrotli() {
-		content = entity.ContentBrotli
-	} else if encoding.ContainsGzip() {
-		content = entity.ContentGzip
-	} else {
-		content = entity.Content
-	}
-
-	http.ServeContent(w, r, entity.Path, entity.ModTime, bytes.NewReader(content))
-	slog.Info(requestIdentity, "status", w.statusCode)
-}
-
-func errorResponse(w http.ResponseWriter, requestIdentity string, statusCode int, statusMessage string) {
-	slog.Info(requestIdentity, "status", http.StatusInternalServerError)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	w.Write([]byte(fmt.Sprintf(`{"code": %v, "status": "%v"}`, statusCode, statusMessage)))
-}
-
-func (app *App) renderIndex(
-	w http.ResponseWriter,
-	entity response.ResponseEntity,
-	encoding headers.Encoding,
-) []byte {
-	if len(app.params.XFrameOptions) > 0 {
-		w.Header().Add("X-Frame-Options", app.params.XFrameOptions)
-	}
-
-	cspNonce := ""
-	if app.isCspApplicable(entity.Content) && app.params.CspTemplate != "" {
-		cspNonce = generateNonce()
-		app.appVariables.Update(CspNonceName, cspNonce)
-		cspValue := app.params.CspTemplate
-		cspValue = strings.ReplaceAll(cspValue, CspNoncePlaceholder, fmt.Sprintf("'nonce-%v'", cspNonce))
+	sort.Slice(indexPaths, func(i, j int) bool {
+		return len(indexPaths[i]) > len(indexPaths[j])
+	})
+	cspValue := app.params.CspTemplate
+	if len(cspValue) > 0 {
 		cspValue = strings.ReplaceAll(cspValue, "${_CSP_DEFAULT_SRC}", app.params.CspDefaultSrc)
 		cspValue = strings.ReplaceAll(cspValue, "${_CSP_CONNECT_SRC}", app.params.CspConnectSrc)
 		cspValue = strings.ReplaceAll(cspValue, "${_CSP_FONT_SRC}", app.params.CspFontSrc)
 		cspValue = strings.ReplaceAll(cspValue, "${_CSP_IMG_SRC}", app.params.CspImgSrc)
 		cspValue = strings.ReplaceAll(cspValue, "${_CSP_SCRIPT_SRC}", app.params.CspScriptSrc)
 		cspValue = strings.ReplaceAll(cspValue, "${_CSP_STYLE_SRC}", app.params.CspStyleSrc)
-		w.Header().Set("Content-Security-Policy", cspValue)
-	} else if app.appVariables.IsEmpty() {
-		if encoding.ContainsBrotli() && entity.ContentBrotli != nil {
-			w.Header().Set("Content-Encoding", "br")
-			return entity.ContentBrotli
-		} else if encoding.ContainsGzip() && entity.ContentGzip != nil {
-			w.Header().Set("Content-Encoding", "gzip")
-			return entity.ContentGzip
-		} else {
-			return entity.Content
+	}
+	hasRootIndex := false
+	for _, path := range indexPaths {
+		dir := filepath.Dir(path)
+		requestPath, _ := filepath.Rel(app.params.WorkingDirectory, dir)
+		if requestPath == "." {
+			requestPath = ""
+			hasRootIndex = true
+		} else if !strings.HasSuffix(requestPath, "/") {
+			requestPath += "/"
 		}
+		handler := endpoints.ResolveIndexEndpoint(path, int(app.params.CompressionThreshold), cspValue, app.appVariables)
+		router.GET(fmt.Sprintf("/%v", requestPath), handler.Handle)
+		router.GET(fmt.Sprintf("/%v*filepath", requestPath), handler.Handle)
 	}
 
-	content := app.appVariables.Insert(entity.Content, cspNonce)
-	if cspNonce != "" {
-		content = strings.ReplaceAll(content, CspNoncePlaceholder, cspNonce)
+	if len(indexPaths) > 0 && !hasRootIndex {
+		handler := endpoints.ResolveRootEndpoint(app.params.WorkingDirectory, app.params.I18nDefault)
+		router.GET("/", handler.Handle)
+		router.GET("/*filepath", handler.Handle)
 	}
-	byteContent := []byte(content)
-	if int64(len(content)) < app.params.CompressionThreshold {
-		return byteContent
-	} else if encoding.ContainsBrotli() {
-		return compress.CompressWithBrotliFast(byteContent)
-	} else if encoding.ContainsGzip() {
-		return compress.CompressWithGzipFast(byteContent)
-	} else {
-		return byteContent
-	}
+
+	return router
 }
 
-func (app *App) isCspApplicable(indexContent []byte) bool {
-	return app.appVariables.Has(CspNonceName) || strings.Contains(string(indexContent), CspNoncePlaceholder)
-}
-
-const chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-var runeCharts = []rune(chars)
-
-func generateNonce() string {
-	result := make([]byte, 16)
-	for i := 0; i < 16; i++ {
-		value, err := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
-		if err != nil {
-			slog.Warn("Failed to use secure random to generate CSP nonce. Falling back to less secure variant.")
-			localRand := mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
-			pick := make([]rune, 16)
-			for i := range pick {
-				pick[i] = runeCharts[localRand.Intn(len(chars))]
-			}
-
-			return string(pick)
-		}
-		result[i] = chars[value.Int64()]
-	}
-
-	return string(result)
+func (app *App) Close() {
+	app.fileWatcher.Close()
 }

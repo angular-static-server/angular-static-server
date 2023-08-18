@@ -10,7 +10,7 @@ cd $SCRIPT_DIR && cd ../..
 
 export DOCKERKIT=1
 
-docker build --build-arg="RELEASE_VERSION=0.0.0-dev" --tag ngstaticserver-test . 
+docker build --tag ngstaticserver-test . 
 
 cd $SCRIPT_DIR
 

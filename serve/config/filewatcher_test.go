@@ -9,10 +9,10 @@ import (
 
 func TestShouldUpdateDotEnvOnChange(t *testing.T) {
 	context := test.NewTestDir(t)
-	context.CreateFile(".env", "ENV =production\nPORT =8080 \nDELAY = 200")
+	context.WriteFile(".env", "ENV =production\nPORT =8080 \nDELAY = 200")
 
 	fileWatcher := CreateFileWatcher()
-	test.AssertTrue(t, fileWatcher.watcher != nil, "")
+	test.AssertTrue(t, fileWatcher.watcher != nil)
 	t.Cleanup(func() {
 		fileWatcher.Close()
 	})
@@ -25,12 +25,12 @@ func TestShouldUpdateDotEnvOnChange(t *testing.T) {
 		t.Error(err)
 	}
 
-	test.AssertEqual(t, len(result), 3, "")
+	test.AssertEqual(t, len(result), 3)
 
-	context.CreateFile(".env", "TEST = example")
+	context.WriteFile(".env", "TEST = example")
 
 	time.Sleep(time.Millisecond)
 
-	test.AssertEqual(t, len(result), 1, "")
-	test.AssertEqual(t, readValue(t, result, "TEST"), "example", "")
+	test.AssertEqual(t, len(result), 1)
+	test.AssertEqual(t, readValue(t, result, "TEST"), "example")
 }

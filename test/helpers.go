@@ -23,7 +23,7 @@ func NewTestDir(t *testing.T) TestDir {
 	return TestDir{Path: dir, t: t}
 }
 
-func (context TestDir) CreateFile(fileName string, content string) {
+func (context TestDir) WriteFile(fileName string, content string) {
 	context.t.Helper()
 	filePath := filepath.Join(context.Path, fileName)
 	os.WriteFile(filePath, []byte(content), 0644)
@@ -92,17 +92,6 @@ func (context TestDir) RemoveFile(fileName string) {
 	}
 }
 
-func (context TestDir) CreateDirectory(language string) TestDir {
-	context.t.Helper()
-	path := filepath.Join(context.Path, language)
-	err := os.Mkdir(path, 0755)
-	if err != nil {
-		panic(err)
-	}
-
-	return TestDir{Path: path, t: context.t}
-}
-
 func Chdir(t *testing.T, dir string) {
 	t.Helper()
 	wd, err := os.Getwd()
@@ -120,44 +109,24 @@ func Chdir(t *testing.T, dir string) {
 	})
 }
 
-func AssertContains(t *testing.T, s string, substring string, message string) {
+func AssertEqual(t *testing.T, a interface{}, b interface{}) {
 	t.Helper()
-	debugMessage := fmt.Sprintf("Expected %v to contain %v", s, substring)
-	AssertTrue(t, strings.Contains(s, substring), appendDebugMessage(message, debugMessage))
+	if a != b {
+		t.Errorf("%v != %v", a, b)
+	}
 }
 
-func AssertEqual(t *testing.T, a interface{}, b interface{}, message string) {
+func AssertTrue(t *testing.T, v bool) {
 	t.Helper()
-	AssertTrue(t, a == b, appendDebugMessage(message, fmt.Sprintf("%v != %v", a, b)))
+	if !v {
+		t.Error("Expected value to be true")
+	}
 }
 
-func AssertTrue(t *testing.T, v bool, message string) {
+func AssertNoError(t *testing.T, err error) {
 	t.Helper()
-	if v {
-		return
-	}
-	if len(message) == 0 {
-		message = "Expected value to be true"
-	}
-	t.Fatal(message)
-}
-
-func AssertNoError(t *testing.T, err error, message string) {
-	t.Helper()
-	if err == nil {
-		return
-	}
-	if len(message) == 0 {
-		message = "Expected error to be empty"
-	}
-	t.Fatal(message)
-}
-
-func appendDebugMessage(message string, debugMessage string) string {
-	if len(message) == 0 {
-		return debugMessage
-	} else {
-		return message + "\n" + debugMessage
+	if err != nil {
+		t.Errorf("Expected error to be empty: %v", err)
 	}
 }
 

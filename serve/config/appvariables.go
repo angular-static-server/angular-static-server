@@ -1,12 +1,14 @@
 package config
 
 import (
+	"crypto/sha512"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"golang.org/x/exp/slog"
 )
@@ -14,6 +16,7 @@ import (
 type AppVariables struct {
 	Variant                       string
 	EnvironmentVariables          []string
+	LastChangedAt                 time.Time
 	populatedEnvironmentVariables map[string]*string
 }
 
@@ -23,17 +26,20 @@ type ngsscJSON struct {
 	EnvironmentVariables []string
 }
 
-var defaultAppVariables = &AppVariables{
-	Variant:                       "global",
-	EnvironmentVariables:          make([]string, 0),
-	populatedEnvironmentVariables: make(map[string]*string),
+func DefaultAppVariables() *AppVariables {
+	return &AppVariables{
+		Variant:                       "global",
+		EnvironmentVariables:          make([]string, 0),
+		LastChangedAt:                 time.Now(),
+		populatedEnvironmentVariables: make(map[string]*string),
+	}
 }
 
 func InitializeAppVariables(root string) *AppVariables {
 	path := filepath.Join(root, "ngssc.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return defaultAppVariables
+		return DefaultAppVariables()
 	}
 
 	slog.Info(fmt.Sprintf("Detected ngssc.json file at %v. Reading configuration.", path))
@@ -51,12 +57,13 @@ func InitializeAppVariables(root string) *AppVariables {
 
 	if err != nil {
 		slog.Warn(fmt.Sprintf("%v, creating default configuration", err))
-		return defaultAppVariables
+		return DefaultAppVariables()
 	}
 
 	return &AppVariables{
 		Variant:                       ngssc.Variant,
 		EnvironmentVariables:          ngssc.EnvironmentVariables,
+		LastChangedAt:                 time.Now(),
 		populatedEnvironmentVariables: populateEnvironmentVariables(ngssc.EnvironmentVariables),
 	}
 }
@@ -75,12 +82,7 @@ func populateEnvironmentVariables(environmentVariables []string) map[string]*str
 	return envMap
 }
 
-// Insert the environment variables into the given content
-func (ngsscConfig AppVariables) Insert(htmlBytes []byte, nonce string) string {
-	if len(nonce) > 0 {
-		nonce = fmt.Sprintf(" nonce=\"%v\"", nonce)
-	}
-
+func (ngsscConfig AppVariables) Insert(htmlBytes []byte, calculateCspHash bool) ([]byte, string) {
 	jsonBytes, _ := json.Marshal(ngsscConfig.populatedEnvironmentVariables)
 	envMapJSON := string(jsonBytes)
 	var iife string
@@ -91,20 +93,28 @@ func (ngsscConfig AppVariables) Insert(htmlBytes []byte, nonce string) string {
 	} else {
 		iife = fmt.Sprintf(`self.process={"env":%v}`, envMapJSON)
 	}
+	var cspHash string
+	iifeContent := fmt.Sprintf("(function(self){%v;})(window)", iife)
+	if calculateCspHash {
+		cspHash = fmt.Sprintf("'sha512-%x'", sha512.Sum512([]byte(iifeContent)))
+	}
 
-	iifeScript := fmt.Sprintf("<script%v>(function(self){%v;})(window)</script>", nonce, iife)
+	iifeScript := fmt.Sprintf("<script>%v</script>", iifeContent)
 	html := string(htmlBytes)
 	configRegex := regexp.MustCompile(`<!--\s*CONFIG\s*-->`)
 	if configRegex.Match(htmlBytes) {
-		return configRegex.ReplaceAllString(html, iifeScript)
+		html = configRegex.ReplaceAllString(html, iifeScript)
 	} else if strings.Contains(html, "</title>") {
-		return strings.Replace(html, "</title>", "</title>"+iifeScript, 1)
+		html = strings.Replace(html, "</title>", "</title>"+iifeScript, 1)
 	} else {
-		return strings.Replace(html, "</head>", iifeScript+"</head>", 1)
+		html = strings.Replace(html, "</head>", iifeScript+"</head>", 1)
 	}
+
+	return []byte(html), cspHash
 }
 
 func (appVariables *AppVariables) MergeVariables(variables map[string]*string) {
+	appVariables.LastChangedAt = time.Now()
 	if len(appVariables.EnvironmentVariables) > 0 {
 		for k := range appVariables.populatedEnvironmentVariables {
 			value, ok := variables[k]

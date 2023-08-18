@@ -4,6 +4,7 @@
 FROM alpine AS usergroup
 
 # add a non-privileged user for running the application
+# https://medium.com/@lizrice/non-privileged-containers-based-on-the-scratch-image-a80105d6d341
 RUN addgroup --gid 10001 app && \
     adduser --ingroup app --uid 10001 --shell /bin/nologin --disabled-password --no-create-home app
 

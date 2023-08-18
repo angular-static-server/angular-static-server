@@ -1,7 +1,6 @@
 package compress
 
 import (
-	"fmt"
 	"ngstaticserver/constants"
 	"ngstaticserver/test"
 	"os"
@@ -44,7 +43,7 @@ func TestCompressAction(t *testing.T) {
 	}
 
 	err := compressFilesInDirectory(params)
-	test.AssertTrue(t, err == nil, fmt.Sprintf("compress failed with %v", err))
+	test.AssertNoError(t, err)
 
 	err = assertCompression(t, params.WorkingDirectory, params.Threshold)
 	if err != nil {
@@ -60,16 +59,16 @@ func assertCompression(t *testing.T, workingDirectory string, threshold int64) e
 			return nil
 		} else if info.Size() >= threshold && isUnicodeFile(path) {
 			content, err := os.ReadFile(path)
-			test.AssertNoError(t, err, "")
+			test.AssertNoError(t, err)
 			for _, v := range []string{path + ".gz", path + ".br"} {
-				test.AssertTrue(t, fileExists(v), fmt.Sprintf("%v expected to have been created", v))
+				test.AssertTrue(t, fileExists(v))
 				var compressedContent []byte
 				if strings.HasSuffix(v, ".br") {
 					compressedContent = test.DecompressBrotliFile(v)
 				} else {
 					compressedContent = test.DecompressGzipFile(v)
 				}
-				test.AssertEqual(t, string(compressedContent), string(content), "")
+				test.AssertEqual(t, string(compressedContent), string(content))
 			}
 		}
 
