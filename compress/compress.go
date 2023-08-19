@@ -29,6 +29,13 @@ func Action(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
+	fmt.Printf(`Parameters:
+	Working Directory: %v
+	Threshold:         %v
+
+`, params.WorkingDirectory, params.Threshold)
+
 	return compressFilesInDirectory(params)
 }
 

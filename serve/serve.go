@@ -16,10 +16,6 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-const CspNonceName = "NGSS_CSP_NONCE"
-
-var CspNoncePlaceholder = fmt.Sprintf("${%v}", CspNonceName)
-
 var Flags = []cli.Flag{
 	&cli.IntFlag{
 		EnvVars: []string{"_PORT"},
@@ -31,11 +27,6 @@ var Flags = []cli.Flag{
 		EnvVars: []string{"_CACHE_CONTROL_MAX_AGE"},
 		Name:    "cache-control-max-age",
 		Value:   60 * 60 * 24 * 365,
-	},
-	&cli.IntFlag{
-		EnvVars: []string{"_CACHE_SIZE"},
-		Name:    "cache-size",
-		Value:   constants.DefaultCacheSize,
 	},
 	&cli.Int64Flag{
 		EnvVars: []string{"_COMPRESSION_THRESHOLD"},
@@ -57,11 +48,6 @@ var Flags = []cli.Flag{
 		EnvVars: []string{"_I18N_DEFAULT"},
 		Name:    "i18n-default",
 		Value:   "",
-	},
-	&cli.PathFlag{
-		EnvVars: []string{"_DOTENV_PATH"},
-		Name:    "dotenv-path",
-		Value:   "/config/.env",
 	},
 	&cli.StringFlag{
 		EnvVars: []string{"_CSP_TEMPLATE"},
@@ -108,20 +94,12 @@ var Flags = []cli.Flag{
 type ServerParams struct {
 	WorkingDirectory     string
 	Port                 int
-	DotEnvPath           string
 	CacheControlMaxAge   int64
-	CacheSize            int
 	CompressionThreshold int64
 	I18nDefault          string
 	LogLevel             string
 	LogFormat            string
 	CspTemplate          string
-	CspDefaultSrc        string
-	CspConnectSrc        string
-	CspFontSrc           string
-	CspImgSrc            string
-	CspScriptSrc         string
-	CspStyleSrc          string
 	XFrameOptions        string
 }
 
@@ -138,9 +116,29 @@ func Action(c *cli.Context) error {
 		return err
 	}
 
-	if params.CacheSize < 1024 {
-		slog.Warn(fmt.Sprintf("Minimum cache size is 1024 (configured %v). Resetting to 1024.", params.CacheSize))
-	}
+	fmt.Printf(
+		`Parameters:
+	Working Directory:    %v
+	Port:                 %v
+	CacheControlMaxAge:   %v
+	CompressionThreshold: %v
+	I18nDefault:          %v
+	LogLevel:             %v
+	LogFormat:            %v
+	CspTemplate:          %v
+	XFrameOptions:        %v
+
+`,
+		params.WorkingDirectory,
+		params.Port,
+		params.CacheControlMaxAge,
+		params.CompressionThreshold,
+		params.I18nDefault,
+		params.LogLevel,
+		params.LogFormat,
+		params.CspTemplate,
+		params.XFrameOptions,
+	)
 
 	// Configure slog logger
 	var handler slog.Handler
@@ -182,31 +180,35 @@ func parseServerParams(c *cli.Context) (*ServerParams, error) {
 		}
 	}
 
-	return &ServerParams{
+	cspTemplate := c.String("csp-template")
+	if len(cspTemplate) > 0 {
+		cspTemplate = strings.ReplaceAll(cspTemplate, "${_CSP_DEFAULT_SRC}", c.String("csp-default-src"))
+		cspTemplate = strings.ReplaceAll(cspTemplate, "${_CSP_CONNECT_SRC}", c.String("csp-connect-src"))
+		cspTemplate = strings.ReplaceAll(cspTemplate, "${_CSP_FONT_SRC}", c.String("csp-font-src"))
+		cspTemplate = strings.ReplaceAll(cspTemplate, "${_CSP_IMG_SRC}", c.String("csp-img-src"))
+		cspTemplate = strings.ReplaceAll(cspTemplate, "${_CSP_SCRIPT_SRC}", c.String("csp-script-src"))
+		cspTemplate = strings.ReplaceAll(cspTemplate, "${_CSP_STYLE_SRC}", c.String("csp-style-src"))
+	}
+
+	params := &ServerParams{
 		WorkingDirectory:     workingDirectory,
 		Port:                 c.Int("port"),
-		DotEnvPath:           c.Path("dotenv-path"),
 		CacheControlMaxAge:   c.Int64("cache-control-max-age"),
-		CacheSize:            c.Int("cache-size"),
 		CompressionThreshold: c.Int64("compression-threshold"),
 		I18nDefault:          c.String("i18n-default"),
 		LogLevel:             c.String("log-level"),
 		LogFormat:            c.String("log-format"),
-		CspTemplate:          c.String("csp-template"),
-		CspDefaultSrc:        c.String("csp-default-src"),
-		CspConnectSrc:        c.String("csp-connect-src"),
-		CspFontSrc:           c.String("csp-font-src"),
-		CspImgSrc:            c.String("csp-img-src"),
-		CspScriptSrc:         c.String("csp-script-src"),
-		CspStyleSrc:          c.String("csp-style-src"),
+		CspTemplate:          cspTemplate,
 		XFrameOptions:        c.String("x-frame-options"),
-	}, nil
+	}
+
+	return params, nil
 }
 
 func createApp(params *ServerParams) App {
 	fileWatcher := config.CreateFileWatcher()
 	appVariables := config.InitializeAppVariables(params.WorkingDirectory)
-	dotEnv := config.CreateDotEnv(params.DotEnvPath, appVariables.MergeVariables)
+	dotEnv := config.CreateDotEnv(params.WorkingDirectory, appVariables.MergeVariables)
 	fileWatcher.Watch(dotEnv)
 	return App{params, appVariables, dotEnv, fileWatcher}
 }
@@ -267,15 +269,6 @@ func (app App) createRouter() *httptreemux.TreeMux {
 	sort.Slice(indexPaths, func(i, j int) bool {
 		return len(indexPaths[i]) > len(indexPaths[j])
 	})
-	cspValue := app.params.CspTemplate
-	if len(cspValue) > 0 {
-		cspValue = strings.ReplaceAll(cspValue, "${_CSP_DEFAULT_SRC}", app.params.CspDefaultSrc)
-		cspValue = strings.ReplaceAll(cspValue, "${_CSP_CONNECT_SRC}", app.params.CspConnectSrc)
-		cspValue = strings.ReplaceAll(cspValue, "${_CSP_FONT_SRC}", app.params.CspFontSrc)
-		cspValue = strings.ReplaceAll(cspValue, "${_CSP_IMG_SRC}", app.params.CspImgSrc)
-		cspValue = strings.ReplaceAll(cspValue, "${_CSP_SCRIPT_SRC}", app.params.CspScriptSrc)
-		cspValue = strings.ReplaceAll(cspValue, "${_CSP_STYLE_SRC}", app.params.CspStyleSrc)
-	}
 	hasRootIndex := false
 	for _, path := range indexPaths {
 		dir := filepath.Dir(path)
@@ -286,7 +279,8 @@ func (app App) createRouter() *httptreemux.TreeMux {
 		} else if !strings.HasSuffix(requestPath, "/") {
 			requestPath += "/"
 		}
-		handler := endpoints.ResolveIndexEndpoint(path, int(app.params.CompressionThreshold), cspValue, app.appVariables)
+		handler := endpoints.ResolveIndexEndpoint(
+			path, int(app.params.CompressionThreshold), app.params.CspTemplate, app.appVariables)
 		router.GET(fmt.Sprintf("/%v", requestPath), handler.Handle)
 		router.GET(fmt.Sprintf("/%v*filepath", requestPath), handler.Handle)
 	}

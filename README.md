@@ -68,7 +68,7 @@ For security the [Content-Security-Policy](https://developer.mozilla.org/en-US/d
 and [X-Frame-Options](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options)
 headers are used (See command documentation below for details).
 
-The CSP header is only applied, if either the `ngCspNonce="..."` (recommended) attribute or the
+The CSP header is only applied, if either the `ngCspNonce="..."` attribute (recommended) or the
 reserved environment variable `NGSS_CSP_NONCE` is used.
 
 If you only want to minimally extend the allowed CSP sources, there are a list of variables
@@ -89,10 +89,12 @@ that can be used to extend a specific source: `_CSP_*_SRC`.
 ### NGSS_CSP_NONCE
 
 In order for this to work, you either need to use `angular-server-side-configuration`
-or define `NGSS_CSP_NONCE` in `.env` with a placeholder value.
+or define `NGSS_CSP_NONCE` in `.env` with a placeholder value (which is dynamically replaced
+for each request).
 
-**Note**: At the time of writing, the Angular CLI does not mark `<style>` or `<script>` with the
-defined nonce, which breaks CSP/the app. Due to this, the `ngCspNonce` is recommended.
+**Note**: At the time of writing, when not using the `ngCspNonce="..."` attribute the Angular CLI
+still renders inline scripts, which breaks CSP/the app. Due to this, the `ngCspNonce` approach
+is recommended.
 
 `app.config.ts`
 
@@ -138,7 +140,6 @@ Usage in `Dockerfile`: `CMD ["ng-server", "compress"]`
 | ----------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | \_PORT                  | `--port` or `-p`          | The port to listen to.                                                                                                                                      | `8080`                                                                                                                                                                                     |
 | \_CACHE_CONTROL_MAX_AGE | `--cache-control-max-age` | The `Cache-Control` `max-age` value for fingerprinted files.                                                                                                | `31536000` (a year)                                                                                                                                                                        |
-| \_CACHE_SIZE            | `--cache-size`            | Specifies the maximum size of LRU cache in bytes. Minimum size is `1024`.                                                                                   | `51200`                                                                                                                                                                                    |
 | \_COMPRESSION_THRESHOLD | `--compression-threshold` | The threshold for dynamic compression. This is used to check whether to use compressed versions of files or whether to compress index responses.            | `1024`                                                                                                                                                                                     |
 | \_LOG_LEVEL             | `--log-level` or `-l`     | The log level. Supports `DEBUG`, `INFO`, `WARN` and `ERROR`.                                                                                                | `INFO`                                                                                                                                                                                     |
 | \_LOG_FORMAT            | `--log-format`            | Supports `text` or `json`.                                                                                                                                  | `text`                                                                                                                                                                                     |

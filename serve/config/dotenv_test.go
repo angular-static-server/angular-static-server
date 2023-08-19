@@ -11,7 +11,7 @@ func TestShouldParseDotEnv(t *testing.T) {
 	context.WriteFile(".env", "ENV =production\nPORT =8080 \nDELAY = 200")
 
 	var result map[string]*string
-	CreateDotEnv(filepath.Join(context.Path, ".env"), func(variables map[string]*string) {
+	CreateDotEnv(context.Path, func(variables map[string]*string) {
 		result = variables
 	})
 
@@ -26,7 +26,7 @@ func TestShouldParseEmptyDotEnv(t *testing.T) {
 	context.WriteFile(".env", "")
 
 	var result map[string]*string
-	CreateDotEnv(filepath.Join(context.Path, ".env"), func(variables map[string]*string) {
+	CreateDotEnv(context.Path, func(variables map[string]*string) {
 		result = variables
 	})
 
@@ -37,7 +37,7 @@ func TestShouldSkipMissingDotEnv(t *testing.T) {
 	context := test.NewTestDir(t)
 
 	var result map[string]*string
-	CreateDotEnv(filepath.Join(context.Path, "missing", ".env"), func(variables map[string]*string) {
+	CreateDotEnv(filepath.Join(context.Path, "missing"), func(variables map[string]*string) {
 		result = variables
 	})
 
@@ -49,7 +49,7 @@ func TestShouldSkipMalformedDotEnv(t *testing.T) {
 	context.WriteFile(".env", "{}")
 
 	var result map[string]*string
-	CreateDotEnv(filepath.Join(context.Path, ".env"), func(variables map[string]*string) {
+	CreateDotEnv(context.Path, func(variables map[string]*string) {
 		result = variables
 	})
 

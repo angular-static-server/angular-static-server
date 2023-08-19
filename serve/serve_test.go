@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"ngstaticserver/constants"
 	"ngstaticserver/test"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -291,12 +292,15 @@ func createTestApp(t *testing.T) (App, test.TestDir) {
 
 func createTestAppWithInit(t *testing.T, init func(context test.TestDir, params *ServerParams)) (App, test.TestDir) {
 	context := test.NewTestDir(t)
+	tmpAppDir := filepath.Join(context.Path, "app")
+	err := os.Mkdir(tmpAppDir, 0777)
+	if err != nil {
+		t.Errorf("Failed to create tmp app dir: %v", err)
+	}
 	params := &ServerParams{
-		WorkingDirectory:     context.Path,
+		WorkingDirectory:     tmpAppDir,
 		Port:                 0,
-		DotEnvPath:           filepath.Join(context.Path, ".env"),
 		CacheControlMaxAge:   31536000,
-		CacheSize:            constants.DefaultCacheSize,
 		CompressionThreshold: constants.DefaultCompressionThreshold,
 		LogLevel:             "ERROR",
 		CspTemplate:          constants.CspTemplate,
