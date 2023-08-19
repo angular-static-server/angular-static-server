@@ -11,8 +11,6 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-const globalDotEnvFile = "/config/.env"
-
 type DotEnv struct {
 	dir      string
 	name     string
@@ -21,19 +19,17 @@ type DotEnv struct {
 }
 
 func CreateDotEnv(workingDirectory string, onChange func(variables map[string]*string)) *DotEnv {
-	relativeEnv := filepath.Join(workingDirectory, "../config/.env")
+	configEnvPath := filepath.Join(workingDirectory, "../config/.env")
 	var env map[string]*string
-	if _, err := os.Stat(globalDotEnvFile); err == nil {
-		env = parseDotEnv(globalDotEnvFile)
-	} else if _, err := os.Stat(relativeEnv); err == nil {
-		env = parseDotEnv(relativeEnv)
+	if _, err := os.Stat(configEnvPath); err == nil {
+		env = parseDotEnv(configEnvPath)
 	} else {
 		env = parseDotEnv(filepath.Join(workingDirectory, ".env"))
 	}
 
 	instance := DotEnv{
-		dir:      path.Dir(globalDotEnvFile),
-		name:     path.Base(globalDotEnvFile),
+		dir:      path.Dir(configEnvPath),
+		name:     path.Base(configEnvPath),
 		env:      env,
 		onChange: onChange,
 	}

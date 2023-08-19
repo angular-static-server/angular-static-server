@@ -2,6 +2,7 @@ package config
 
 import (
 	"ngstaticserver/test"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -9,7 +10,8 @@ import (
 
 func TestShouldUpdateDotEnvOnChange(t *testing.T) {
 	context := test.NewTestDir(t)
-	context.WriteFile(".env", "ENV =production\nPORT =8080 \nDELAY = 200")
+	envFilePath := filepath.Join(context.Path, "../config/.env")
+	os.WriteFile(envFilePath, []byte("ENV =production\nPORT =8080 \nDELAY = 200"), 0644)
 
 	fileWatcher := CreateFileWatcher()
 	test.AssertTrue(t, fileWatcher.watcher != nil)
@@ -17,17 +19,15 @@ func TestShouldUpdateDotEnvOnChange(t *testing.T) {
 		fileWatcher.Close()
 	})
 	var result map[string]*string
-	env := CreateDotEnv(filepath.Join(context.Path, ".env"), func(variables map[string]*string) {
+	env := CreateDotEnv(context.Path, func(variables map[string]*string) {
 		result = variables
 	})
 	err := fileWatcher.Watch(env)
-	if err != nil {
-		t.Error(err)
-	}
+	test.AssertNoError(t, err)
 
 	test.AssertEqual(t, len(result), 3)
 
-	context.WriteFile(".env", "TEST = example")
+	os.WriteFile(envFilePath, []byte("TEST = example"), 0644)
 
 	time.Sleep(time.Millisecond)
 

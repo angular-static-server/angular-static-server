@@ -20,7 +20,11 @@ type TestDir struct {
 func NewTestDir(t *testing.T) TestDir {
 	t.Helper()
 	dir := t.TempDir()
-	return TestDir{Path: dir, t: t}
+	err := os.Mkdir(filepath.Join(dir, "config"), 0777)
+	AssertNoError(t, err)
+	err = os.Mkdir(filepath.Join(dir, "app"), 0777)
+	AssertNoError(t, err)
+	return TestDir{Path: filepath.Join(dir, "app"), t: t}
 }
 
 func (context TestDir) WriteFile(fileName string, content string) {
