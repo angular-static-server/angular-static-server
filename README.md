@@ -11,7 +11,7 @@ provided as a container image.
 ✅ Zero configuration necessary  
 ✅ Small binary size (container image size is ~12MB) and fast startup  
 ✅ Support app configuration via environment variables/.env file  
-✅ Provide security via CSP header and templating
+✅ Provide security via CSP header and templating  
 ✅ Follows Angular major version cadence
 
 Feel free to create a feature request, if a feature you need is missing.
