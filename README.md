@@ -72,7 +72,9 @@ The CSP header is only applied, if either the `ngCspNonce="..."` attribute (reco
 reserved environment variable `NGSS_CSP_NONCE` is used.
 
 If you only want to minimally extend the allowed CSP sources, there are a list of variables
-that can be used to extend a specific source: `_CSP_*_SRC`.
+that can be used to extend a specific source: `_CSP_*_SRC`
+(e.g. `ENV _CSP_FONT_SRC=https://fonts.gstatic.com/` or for multiple values
+`ENV _CSP_FONT_SRC="https://font1.example https://font2.example"`).
 
 ### ngCspNonce (recommended)
 
