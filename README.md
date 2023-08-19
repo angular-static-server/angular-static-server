@@ -9,7 +9,7 @@ provided as a container image.
 
 ✅ File server and `index.html` lookup  
 ✅ Zero configuration necessary  
-✅ Small binary size and fast startup  
+✅ Small binary size (container image size is ~12MB) and fast startup  
 ✅ Support app configuration via environment variables/.env file  
 ✅ Provide security via CSP header and templating
 ✅ Follows Angular major version cadence
@@ -24,7 +24,7 @@ Feel free to create a feature request, if a feature you need is missing.
 FROM ghcr.io/angular-static-server/server:16
 
 # Copy your built application into the container.
-COPY --chown=app:app dist/your-app .
+COPY --chown=10001:10001 dist/your-app .
 # Optionally compress your files to gzip and brotli variants for improved performance.
 RUN ["ng-server", "compress"]
 ```
@@ -39,6 +39,7 @@ does not include a shell. If you need a shell or other tools, you could copy the
 See the [Dockerfile](./Dockerfile) for reference.
 
 The image follows the guidelines defined by https://github.com/mozilla-services/Dockerflow
+(except for the named user/group `app:app`, which is just `10001:10001`).
 This means the following endpoints are implemented:
 
 | Endpoint           | Functionality                                                                     |
