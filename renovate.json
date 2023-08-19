@@ -1,0 +1,23 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:base", ":automergeMinor"],
+  "automergeStrategy": "squash",
+  "ignoreDeps": [
+    "typescript",
+    "zone.js"
+  ],
+  "packageRules": [
+    {
+      "matchManagers": ["npm"],
+      "groupName": "angular",
+      "matchPackagePrefixes": [
+        "@angular/",
+        "@angular-devkit/",
+        "@sbb-esta/",
+        "@schematics/angular",
+        "typescript",
+        "zone.js"
+      ]
+    }
+  ]
+}

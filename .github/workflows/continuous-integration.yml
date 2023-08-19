@@ -43,9 +43,9 @@ jobs:
         if: github.repository.fork == false
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io --username ${{ github.actor }} --password-stdin
       - name: Container
-        run: docker build --tag $IMAGE_REPO:${{ github.ref_name }} .
+        run: docker build --tag $IMAGE_REPO:$(echo "${{ github.ref_name }}" | tr / _) .
         env:
           DOCKER_BUILDKIT: 1
       - name: 'Container: Publish image'
         if: github.repository.fork == false
-        run: docker push $IMAGE_REPO:${{ github.ref_name }}
+        run: docker push $IMAGE_REPO:$(echo "${{ github.ref_name }}" | tr / _)
