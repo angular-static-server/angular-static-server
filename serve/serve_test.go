@@ -1,6 +1,7 @@
 package serve
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,25 +21,23 @@ var Licenses = "3rdpartylicenses.txt"
 var IndexHtml = "index.html"
 
 func TestAction(t *testing.T) {
-	timeout := time.After(1 * time.Second)
-	done := make(chan bool)
-	go func() {
-		app := &cli.App{
-			Commands: []*cli.Command{
-				{
-					Name:   "serve",
-					Flags:  Flags,
-					Action: Action,
-				},
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+	defer cancel()
+
+	app := &cli.App{
+		Commands: []*cli.Command{
+			{
+				Name:   "serve",
+				Flags:  Flags,
+				Action: Action,
 			},
-		}
-		app.Run([]string{"path-to-binary", "serve"})
-		done <- true
-	}()
+		},
+	}
+	go app.RunContext(ctx, []string{"path-to-binary", "serve"})
 
 	select {
-	case <-timeout:
-	case <-done:
+	case <-ctx.Done():
+		test.AssertEqual(t, ctx.Err(), context.DeadlineExceeded)
 	}
 }
 

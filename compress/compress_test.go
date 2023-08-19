@@ -25,13 +25,9 @@ func TestAction(t *testing.T) {
 		},
 	}
 	err := app.Run([]string{"path-to-binary", "compress"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.AssertNoError(t, err)
 	err = assertCompression(t, context.Path, constants.DefaultCompressionThreshold)
-	if err != nil {
-		t.Error(err)
-	}
+	test.AssertNoError(t, err)
 }
 
 func TestCompressAction(t *testing.T) {
