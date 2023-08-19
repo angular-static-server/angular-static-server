@@ -14,7 +14,9 @@ provided as a container image.
 ✅ Provide security via CSP header and templating  
 ✅ Follows Angular major version cadence
 
-Feel free to create a feature request, if a feature you need is missing.
+Feel free to create a
+[feature request](https://github.com/angular-static-server/angular-static-server/issues/new/choose),
+if a feature you need is missing.
 
 ## Usage
 
