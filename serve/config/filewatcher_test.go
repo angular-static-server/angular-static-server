@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"ngstaticserver/test"
 	"os"
 	"path/filepath"
@@ -33,14 +34,17 @@ func TestShouldUpdateDotEnvOnChange(t *testing.T) {
 
 	test.AssertEqual(t, len(testEnv.env), 3)
 
+	fmt.Println(env.env)
 	err = os.WriteFile(envFilePath, []byte("TEST = example"), 0666)
 	if err != nil {
 		t.Fatalf("failed to write to file: %s", err)
 	}
 
+	fmt.Println(env.env)
 	// This test is flaky on GitHub Actions, so we do this workaround
 	counter := 0
 	for counter < 200 && len(testEnv.env) != 1 {
+		fmt.Println(env.env)
 		time.Sleep(time.Millisecond * 50)
 		counter++
 	}
