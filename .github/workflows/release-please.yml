@@ -49,7 +49,7 @@ jobs:
       - name: 'Container: Build image'
         run: |
           docker build \
-            --build-arg="RELEASE_VERSION=$VERSION"
+            --build-arg="RELEASE_VERSION=$VERSION" \
             --target server \
             --tag $IMAGE_REPO:$VERSION \
             --tag $IMAGE_REPO:$MAJOR_VERSION \
