@@ -25,8 +25,9 @@ func CreateDotEnv(workingDirectory string, onChange func(variables map[string]*s
 		slog.Info(fmt.Sprintf("Detected .env file at %v. Reading variables and adding watch.", configEnvPath))
 		env = parseDotEnv(configEnvPath)
 	} else {
-		slog.Info(fmt.Sprintf("Detected .env file at %v. Reading variables.", configEnvPath))
-		env = parseDotEnv(filepath.Join(workingDirectory, ".env"))
+		localEnv := filepath.Join(workingDirectory, ".env")
+		slog.Info(fmt.Sprintf("Detected .env file at %v. Reading variables.", localEnv))
+		env = parseDotEnv(localEnv)
 	}
 
 	instance := DotEnv{
@@ -56,7 +57,6 @@ func (dotEnv *DotEnv) HandleChange() {
 
 func parseDotEnv(filePath string) map[string]*string {
 	content, err := os.ReadFile(filePath)
-	fmt.Printf("parse %v: %v", filePath, string(content))
 	if err != nil {
 		return make(map[string]*string, 0)
 	}
