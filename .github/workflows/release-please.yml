@@ -1,3 +1,4 @@
+name: Release Please
 on:
   push:
     branches:
@@ -5,16 +6,65 @@ on:
 
 permissions:
   contents: write
+  packages: write
   pull-requests: write
-
-name: release-please
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      major: ${{ steps.release.outputs.major }}
+      minor: ${{ steps.release.outputs.minor }}
+      patch: ${{ steps.release.outputs.patch }}
     steps:
       - uses: google-github-actions/release-please-action@v3
+        id: release
         with:
           release-type: go
           include-v-in-tag: false
           release-as: 16.0.0
+      - name: Release Info
+        run: echo "${{ toJSON(steps.release.outputs) }}"
+
+  release:
+    needs: release-please
+    if: needs.release-please.outputs.releases_created
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/server
+      VERSION: ${{ format('{0}.{1}.{2}', needs.release-please.outputs.major, needs.release-please.outputs.minor, needs.release-please.outputs.patch) }}
+      MAJOR_VERSION: ${{ needs.release-please.outputs.major }}
+    steps:
+      - name: CI Info
+        run: echo "${{ toJSON(github) }}"
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+      - name: Build
+        run: go build
+
+      - name: Login to ghcr.io
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io --username ${{ github.actor }} --password-stdin
+      - id: major-version
+        run: echo "version=${VERSION%%.*}" >> "$GITHUB_OUTPUT"
+      - name: 'Container: Build image'
+        run: |
+          docker build \
+            --build-arg="RELEASE_VERSION=$VERSION"
+            --target server \
+            --tag $IMAGE_REPO:$VERSION \
+            --tag $IMAGE_REPO:$MAJOR_VERSION \
+            --tag $IMAGE_REPO:latest \
+            .
+        env:
+          DOCKER_BUILDKIT: 1
+      - name: 'Container: Publish image'
+        run: docker push $IMAGE_REPO:$VERSION
+      - name: 'Container: Publish image as major version'
+        if: contains(github.ref_name, '-') == false
+        run: docker push $IMAGE_REPO:$MAJOR_VERSION
+      - name: 'Container: Publish image as latest'
+        if: contains(github.ref_name, '-') == false
+        run: docker push $IMAGE_REPO:latest
