@@ -17,10 +17,6 @@ func (env *testEnvState) handleChange(variables map[string]*string) {
 }
 
 func TestShouldUpdateDotEnvOnChange(t *testing.T) {
-	if os.Getenv("CI") != "" {
-		t.Skip("Skipping flaky test in CI environment")
-	}
-
 	context := test.NewTestDir(t)
 	envFilePath := filepath.Join(context.Path, "../config/.env")
 	os.WriteFile(envFilePath, []byte("ENV =production\nPORT =8080 \nDELAY = 200"), 0666)
