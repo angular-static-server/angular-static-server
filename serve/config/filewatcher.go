@@ -3,6 +3,7 @@ package config
 import (
 	"log/slog"
 	"path"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -44,6 +45,12 @@ func CreateFileWatcher() *FileWatcher {
 					if ok {
 						for _, watchable := range watchables {
 							if watchable.Name() == name {
+								// When e.g. using os.WriteFile, the truncation already triggers
+								// a change event, which results in the file being empty when
+								// calling HandleChange.
+								// Due to this, we wait for a millisecond, which should be enough for
+								// the write operation to finish.
+								time.Sleep(time.Millisecond)
 								watchable.HandleChange()
 							}
 							return
