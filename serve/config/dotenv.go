@@ -56,7 +56,7 @@ func (dotEnv *DotEnv) HandleChange() {
 
 func parseDotEnv(filePath string) map[string]*string {
 	content, err := os.ReadFile(filePath)
-	fmt.Printf("parse: %v", string(content))
+	fmt.Printf("parse %v: %v", filePath, string(content))
 	if err != nil {
 		return make(map[string]*string, 0)
 	}
