@@ -2,6 +2,7 @@ package serve
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"ngstaticserver/constants"
 	"ngstaticserver/serve/config"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/dimfeld/httptreemux/v5"
 	"github.com/urfave/cli/v2"
-	"golang.org/x/exp/slog"
 )
 
 var Flags = []cli.Flag{

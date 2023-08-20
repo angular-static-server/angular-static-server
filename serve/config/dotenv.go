@@ -3,12 +3,12 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
 
 	"github.com/hashicorp/go-envparse"
-	"golang.org/x/exp/slog"
 )
 
 type DotEnv struct {

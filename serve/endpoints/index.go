@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
+	"log/slog"
 	"math/big"
 	mathrand "math/rand"
 	"net/http"
@@ -13,8 +14,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"golang.org/x/exp/slog"
 )
 
 type IndexEndpoint struct {

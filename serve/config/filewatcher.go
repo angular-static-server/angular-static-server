@@ -1,10 +1,10 @@
 package config
 
 import (
+	"log/slog"
 	"path"
 
 	"github.com/fsnotify/fsnotify"
-	"golang.org/x/exp/slog"
 )
 
 type FileWatcher struct {

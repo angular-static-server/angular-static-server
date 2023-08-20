@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha512"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"ngstaticserver/serve/config"
 	"ngstaticserver/serve/headers"
@@ -11,7 +12,6 @@ import (
 	"regexp"
 	"strings"
 
-	"golang.org/x/exp/slog"
 	"golang.org/x/net/html"
 )
 

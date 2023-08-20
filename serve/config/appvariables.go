@@ -4,13 +4,12 @@ import (
 	"crypto/sha512"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
-
-	"golang.org/x/exp/slog"
 )
 
 type AppVariables struct {
