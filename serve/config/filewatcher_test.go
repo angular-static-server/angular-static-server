@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+type testEnvState struct {
+	env map[string]*string
+}
+
+func (env *testEnvState) handleChange(variables map[string]*string) {
+	env.env = variables
+}
+
 func TestShouldUpdateDotEnvOnChange(t *testing.T) {
 	context := test.NewTestDir(t)
 	envFilePath := filepath.Join(context.Path, "../config/.env")
@@ -18,19 +26,22 @@ func TestShouldUpdateDotEnvOnChange(t *testing.T) {
 	t.Cleanup(func() {
 		fileWatcher.Close()
 	})
-	var result map[string]*string
-	env := CreateDotEnv(context.Path, func(variables map[string]*string) {
-		result = variables
-	})
+	testEnv := &testEnvState{make(map[string]*string)}
+	env := CreateDotEnv(context.Path, testEnv.handleChange)
 	err := fileWatcher.Watch(env)
 	test.AssertNoError(t, err)
 
-	test.AssertEqual(t, len(result), 3)
+	test.AssertEqual(t, len(testEnv.env), 3)
 
 	os.WriteFile(envFilePath, []byte("TEST = example"), 0644)
 
-	time.Sleep(time.Millisecond * 100)
+	// This test is flaky on GitHub Actions, so we do this workaround
+	counter := 0
+	for counter < 20 && len(testEnv.env) == 3 {
+		time.Sleep(time.Millisecond * 50)
+		counter++
+	}
 
-	test.AssertEqual(t, len(result), 1)
-	test.AssertEqual(t, readValue(t, result, "TEST"), "example")
+	test.AssertEqual(t, len(testEnv.env), 1)
+	test.AssertEqual(t, readValue(t, testEnv.env, "TEST"), "example")
 }
