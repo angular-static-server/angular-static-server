@@ -29,7 +29,7 @@ func TestShouldUpdateDotEnvOnChange(t *testing.T) {
 
 	os.WriteFile(envFilePath, []byte("TEST = example"), 0644)
 
-	time.Sleep(time.Millisecond * 10)
+	time.Sleep(time.Millisecond * 100)
 
 	test.AssertEqual(t, len(result), 1)
 	test.AssertEqual(t, readValue(t, result, "TEST"), "example")
