@@ -34,21 +34,27 @@ func TestShouldUpdateDotEnvOnChange(t *testing.T) {
 
 	test.AssertEqual(t, len(testEnv.env), 3)
 
-	fmt.Println(env.env)
+	printState(env, envFilePath)
 	err = os.WriteFile(envFilePath, []byte("TEST = example"), 0666)
 	if err != nil {
 		t.Fatalf("failed to write to file: %s", err)
 	}
 
-	fmt.Println(env.env)
+	printState(env, envFilePath)
 	// This test is flaky on GitHub Actions, so we do this workaround
 	counter := 0
 	for counter < 200 && len(testEnv.env) != 1 {
-		fmt.Println(env.env)
+		printState(env, envFilePath)
 		time.Sleep(time.Millisecond * 50)
 		counter++
 	}
 
 	test.AssertEqual(t, len(testEnv.env), 1)
 	test.AssertEqual(t, readValue(t, testEnv.env, "TEST"), "example")
+}
+
+func printState(env *DotEnv, file string) {
+	fmt.Println(env.env)
+	content, _ := os.ReadFile(file)
+	fmt.Println(string(content))
 }
