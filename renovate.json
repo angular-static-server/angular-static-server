@@ -2,10 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:base", ":automergeMinor", ":docker", ":gomod", ":npm"],
   "automergeStrategy": "squash",
-  "ignoreDeps": [
-    "typescript",
-    "zone.js"
-  ],
+  "ignoreDeps": ["typescript", "zone.js"],
   "packageRules": [
     {
       "matchManagers": ["npm"],
@@ -19,5 +16,6 @@
         "zone.js"
       ]
     }
-  ]
+  ],
+  "postUpdateOptions": ["gomodTidy"]
 }
