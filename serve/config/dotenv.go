@@ -22,8 +22,10 @@ func CreateDotEnv(workingDirectory string, onChange func(variables map[string]*s
 	configEnvPath := filepath.Join(workingDirectory, "../config/.env")
 	var env map[string]*string
 	if _, err := os.Stat(configEnvPath); err == nil {
+		slog.Info(fmt.Sprintf("Detected .env file at %v. Reading variables and adding watch.", configEnvPath))
 		env = parseDotEnv(configEnvPath)
 	} else {
+		slog.Info(fmt.Sprintf("Detected .env file at %v. Reading variables.", configEnvPath))
 		env = parseDotEnv(filepath.Join(workingDirectory, ".env"))
 	}
 
@@ -46,7 +48,9 @@ func (dotEnv *DotEnv) Name() string {
 }
 
 func (dotEnv *DotEnv) HandleChange() {
-	dotEnv.env = parseDotEnv(filepath.Join(dotEnv.dir, dotEnv.name))
+	filePath := filepath.Join(dotEnv.dir, dotEnv.name)
+	slog.Info(fmt.Sprintf("Detected change in %v. Reading variables.", filePath))
+	dotEnv.env = parseDotEnv(filePath)
 	dotEnv.onChange(dotEnv.env)
 }
 
@@ -56,7 +60,6 @@ func parseDotEnv(filePath string) map[string]*string {
 		return make(map[string]*string, 0)
 	}
 
-	slog.Info(fmt.Sprintf("Detected .env file at %v. Reading variables and adding watch.", filePath))
 	env, err := envparse.Parse(bytes.NewReader(content))
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed to parse dot env file at %v. Continuing without dot env file.", filePath))
