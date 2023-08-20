@@ -15,8 +15,7 @@ jobs:
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       major: ${{ steps.release.outputs.major }}
-      minor: ${{ steps.release.outputs.minor }}
-      patch: ${{ steps.release.outputs.patch }}
+      version: ${{ steps.release.outputs.version }}
     steps:
       - uses: google-github-actions/release-please-action@v3
         id: release
@@ -25,7 +24,7 @@ jobs:
           include-v-in-tag: false
           release-as: 16.0.0
       - name: Release Info
-        run: echo "${{ toJSON(steps.release.outputs) }}"
+        run: echo "${{ steps.release.outputs }}"
 
   release:
     needs: release-please
@@ -33,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/server
-      VERSION: ${{ format('{0}.{1}.{2}', needs.release-please.outputs.major, needs.release-please.outputs.minor, needs.release-please.outputs.patch) }}
+      VERSION: ${{ needs.release-please.outputs.version }}
       MAJOR_VERSION: ${{ needs.release-please.outputs.major }}
     steps:
       - name: CI Info
