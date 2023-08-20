@@ -22,7 +22,7 @@ jobs:
         with:
           release-type: go
           include-v-in-tag: false
-          release-as: 16.0.0
+          # release-as: 16.0.0
       - name: Release Info
         run: echo "${{ steps.release.outputs }}"
 
