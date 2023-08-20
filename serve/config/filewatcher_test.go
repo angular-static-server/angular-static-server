@@ -46,7 +46,7 @@ func TestShouldUpdateDotEnvOnChange(t *testing.T) {
 
 	// This test is flaky on GitHub Actions, so we do this workaround
 	counter := 0
-	for counter < 20 && len(testEnv.env) != 1 {
+	for counter < 200 && len(testEnv.env) != 1 {
 		time.Sleep(time.Millisecond * 50)
 		counter++
 	}
