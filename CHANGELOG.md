@@ -1,5 +1,16 @@
 # Changelog
 
+## [16.0.1](https://github.com/angular-static-server/angular-static-server/compare/16.0.0...16.0.1) (2023-08-27)
+
+
+### Bug Fixes
+
+* address timing issue with .env file watcher ([#16](https://github.com/angular-static-server/angular-static-server/issues/16)) ([6a2480e](https://github.com/angular-static-server/angular-static-server/commit/6a2480e3e02e4d7a0c483cf154d25ba7b2554810))
+* **deps:** update angular monorepo to v16.2.1 ([#15](https://github.com/angular-static-server/angular-static-server/issues/15)) ([0fba0a0](https://github.com/angular-static-server/angular-static-server/commit/0fba0a0c0e3e675a3d7f0e3a07cab60f2a156018))
+* **deps:** update angular monorepo to v16.2.2 ([#17](https://github.com/angular-static-server/angular-static-server/issues/17)) ([74ff2ad](https://github.com/angular-static-server/angular-static-server/commit/74ff2ad8171e2194f934259775adb9b17f852b5c))
+* **deps:** update angularmaterial monorepo to v16.2.1 ([#11](https://github.com/angular-static-server/angular-static-server/issues/11)) ([b215def](https://github.com/angular-static-server/angular-static-server/commit/b215def2732dcd4deb79f918132366de952f252b))
+* **deps:** update dependency tslib to v2.6.2 ([#12](https://github.com/angular-static-server/angular-static-server/issues/12)) ([02d0cef](https://github.com/angular-static-server/angular-static-server/commit/02d0cef20f5c35d358b1a8be4e1c31f6b7c47e33))
+
 ## 16.0.0 (2023-08-20)
 
 
