@@ -3,6 +3,7 @@
   "extends": [
     "config:recommended",
     ":automergeMinor",
+    ":automergeBranch",
     ":docker",
     ":gomod",
     ":npm"
