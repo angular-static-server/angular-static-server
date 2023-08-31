@@ -27,7 +27,7 @@
     "@angular-devkit/build-angular": "^16.1.8",
     "@angular/cli": "~16.2.0",
     "@angular/compiler-cli": "^16.1.0",
-    "@angular/localize": "16.2.2",
+    "@angular/localize": "16.2.3",
     "typescript": "~5.1.3"
   }
 }
