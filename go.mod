@@ -6,12 +6,12 @@ require (
 	github.com/dimfeld/httptreemux/v5 v5.5.0
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/hashicorp/go-envparse v0.1.0
-	golang.org/x/net v0.15.0
+	golang.org/x/net v0.16.0
 )
 
 require (
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
-	golang.org/x/sys v0.12.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
 )
 
 require (
