@@ -20,7 +20,7 @@ jobs:
         with:
           path: test/angular/dist
           key: angular-apps-${{ hashFiles('**/test/angular/angular.json', '**/test/angular/package-lock.json', '**/test/angular/projects/**') }}
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         if: steps.angular-app-cache.outputs.cache-hit != 'true'
         with:
           node-version-file: '.nvmrc'
