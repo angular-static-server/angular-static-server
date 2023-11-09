@@ -7,16 +7,16 @@
   "version": "0.0.0",
   "private": true,
   "dependencies": {
-    "@angular/animations": "^16.1.0",
+    "@angular/animations": "^17.0.0",
     "@angular/cdk": "^16.2.0",
-    "@angular/common": "^16.1.0",
-    "@angular/compiler": "^16.1.0",
-    "@angular/core": "^16.1.0",
-    "@angular/forms": "^16.1.0",
+    "@angular/common": "^17.0.0",
+    "@angular/compiler": "^17.0.0",
+    "@angular/core": "^17.0.0",
+    "@angular/forms": "^17.0.0",
     "@angular/material": "^16.2.0",
-    "@angular/platform-browser": "^16.1.0",
-    "@angular/platform-browser-dynamic": "^16.1.0",
-    "@angular/router": "^16.1.0",
+    "@angular/platform-browser": "^17.0.0",
+    "@angular/platform-browser-dynamic": "^17.0.0",
+    "@angular/router": "^17.0.0",
     "@sbb-esta/angular": "^16.5.0",
     "angular-server-side-configuration": "16.0.0",
     "rxjs": "~7.8.0",
@@ -26,8 +26,8 @@
   "devDependencies": {
     "@angular-devkit/build-angular": "^16.1.8",
     "@angular/cli": "~16.2.0",
-    "@angular/compiler-cli": "^16.1.0",
-    "@angular/localize": "16.2.12",
+    "@angular/compiler-cli": "^17.0.0",
+    "@angular/localize": "17.0.2",
     "typescript": "~5.1.3"
   }
 }
