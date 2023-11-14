@@ -94,10 +94,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "browserTarget": "minimal:build:production"
+              "buildTarget": "minimal:build:production"
             },
             "development": {
-              "browserTarget": "minimal:build:development"
+              "buildTarget": "minimal:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -105,7 +105,7 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "minimal:build"
+            "buildTarget": "minimal:build"
           }
         }
       }
@@ -174,10 +174,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "browserTarget": "i18n:build:production"
+              "buildTarget": "i18n:build:production"
             },
             "development": {
-              "browserTarget": "i18n:build:development"
+              "buildTarget": "i18n:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -185,9 +185,9 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "i18n:build",
             "format": "json",
-            "outFile": "projects/i18n/messages.json"
+            "outFile": "projects/i18n/messages.json",
+            "buildTarget": "i18n:build"
           }
         }
       }
@@ -255,10 +255,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "browserTarget": "ngssc:build:production"
+              "buildTarget": "ngssc:build:production"
             },
             "development": {
-              "browserTarget": "ngssc:build:development"
+              "buildTarget": "ngssc:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -266,18 +266,18 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "ngssc:build"
+            "buildTarget": "ngssc:build"
           }
         },
         "ngsscbuild": {
           "builder": "angular-server-side-configuration:ngsscbuild",
           "options": {
             "additionalEnvironmentVariables": [],
-            "browserTarget": "ngssc:build"
+            "buildTarget": "ngssc:build"
           },
           "configurations": {
             "production": {
-              "browserTarget": "ngssc:build:production"
+              "buildTarget": "ngssc:build:production"
             }
           }
         }
