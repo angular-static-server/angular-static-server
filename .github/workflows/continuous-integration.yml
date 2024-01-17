@@ -16,7 +16,7 @@ jobs:
           go-version-file: 'go.mod'
       - name: Restore cached Angular Test App
         id: angular-app-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: test/angular/dist
           key: angular-apps-${{ hashFiles('**/test/angular/angular.json', '**/test/angular/package-lock.json', '**/test/angular/projects/**') }}
