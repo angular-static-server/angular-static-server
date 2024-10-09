@@ -1,3 +1,6 @@
+> [!WARNING]
+> Archived, as most of of the use cases can now be achieved with nginx
+
 # angular-static-server
 
 A static HTTP server based on Go optimized for Angular applications
